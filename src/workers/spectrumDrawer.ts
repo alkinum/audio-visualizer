@@ -1,12 +1,6 @@
 // Worker for spectrum visualization rendering
 // This worker handles the heavy computational and drawing tasks
 
-interface ColorPoint {
-  r: number;
-  g: number;
-  b: number;
-}
-
 interface PaddingConfig {
   top: number;
   right: number;
@@ -186,14 +180,14 @@ function drawSpectrum(data: DrawSpectrumMessage): void {
     const yPos = getFrequencyY(freq, canvasHeight, padding);
 
     // Draw grid line
-    ctx.beginPath();
-    ctx.moveTo(padding.left, yPos);
-    ctx.lineTo(padding.left + drawWidth, yPos);
-    ctx.stroke();
+    ctx!.beginPath();
+    ctx!.moveTo(padding.left, yPos);
+    ctx!.lineTo(padding.left + drawWidth, yPos);
+    ctx!.stroke();
 
     // Draw frequency label (right side)
     const label = freq < 1000 ? `${freq}Hz` : `${freq / 1000}kHz`;
-    ctx.fillText(label, padding.left + drawWidth + 5, yPos);
+    ctx!.fillText(label, padding.left + drawWidth + 5, yPos);
   });
 
   // Handle empty data case
