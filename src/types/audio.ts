@@ -5,11 +5,11 @@ export interface AudioData {
     right: number[];
     combined: number[];
   };
-  spectrumData: number[];
+  spectrumData: number[][];
 }
 
 export interface VisualizationProps {
-  data: number[] | { left: number[]; right: number[]; combined: number[] };
+  data: number[] | number[][] | { left: number[]; right: number[]; combined: number[] };
   height: number;
   color: string;
   gradientColor?: string;
