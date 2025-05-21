@@ -1,0 +1,8 @@
+name = "audio-visualizer"
+compatibility_date = "2025-05-22"
+
+[build]
+command = "npm run build"
+
+[site]
+bucket = "dist"
