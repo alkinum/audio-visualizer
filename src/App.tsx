@@ -180,7 +180,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
-      <header className="py-4">
+      <header className="py-4 select-none">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative w-8 h-8">
@@ -230,7 +230,7 @@ function App() {
         </div>
       </main>
 
-      <footer className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center">
+      <footer className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center select-none">
         <span className="text-sm text-gray-500/50 dark:text-gray-400/50">Made by Alkinum</span>
       </footer>
     </div>
