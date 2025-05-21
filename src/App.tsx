@@ -180,8 +180,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
-      <header className="py-4 px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <header className="py-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative w-8 h-8">
               <div className="absolute inset-0 bg-gradient-to-r from-primary-light to-secondary rounded-lg blur opacity-50"></div>
@@ -192,13 +192,7 @@ function App() {
             <h1 className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">Audio Visualizer</h1>
           </div>
           <div className="flex items-center gap-2">
-            <a 
-              href="https://github.com/alkinum/audio-visualizer"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 dark:bg-gray-800/50 dark:hover:bg-gray-700/50 backdrop-blur-sm transition-colors duration-200 shadow-sm"
-              aria-label="View source on GitHub"
-            >
+            <a href="https://github.com/alkinum/audio-visualizer" target="_blank" rel="noopener noreferrer" className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 dark:bg-gray-800/50 dark:hover:bg-gray-700/50 backdrop-blur-sm transition-colors duration-200 shadow-sm" aria-label="View source on GitHub">
               <Github className="w-4 h-4 text-gray-600 dark:text-gray-400" />
             </a>
             <button onClick={toggleDarkMode} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 dark:bg-gray-800/50 dark:hover:bg-gray-700/50 backdrop-blur-sm transition-colors duration-200 shadow-sm" aria-label="Toggle dark mode">
@@ -208,7 +202,7 @@ function App() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-6 py-4">
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl shadow-xl overflow-hidden p-6 transition-colors duration-300">
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Select an Audio File</h2>
 
