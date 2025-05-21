@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Music, Moon, Sun } from 'lucide-react';
+import { Music, Moon, Sun, Github } from 'lucide-react';
 import FileDropzone from './components/FileDropzone';
 import Waveform from './components/Waveform';
 import Spectrum from './components/Spectrum';
@@ -107,29 +107,51 @@ function App() {
 
   const handleSeek = useCallback(
     (time: number) => {
-      if (!audioData || !audioContext.current) return;
+      if (!audioData) return;
 
-      if (audioSource.current) {
-        audioSource.current.stop();
-        audioSource.current = null;
+      if (!audioContext.current) {
+        if (window.AudioContext) {
+          audioContext.current = new window.AudioContext();
+        } else {
+          console.error('AudioContext is not supported in this browser.');
+          setError('Your browser does not support the Web Audio API, which is required for playback.');
+          return;
+        }
+      }
+      if (!audioContext.current) {
+        console.error('AudioContext could not be initialized.');
+        setError('Audio playback is not available.');
+        return;
       }
 
+      setAudioState((prev) => ({
+        ...prev,
+        currentTime: time,
+      }));
+
       pauseTime.current = time;
-      setAudioState((prev) => ({ ...prev, currentTime: time }));
 
       if (audioState.isPlaying) {
-        if (audioContext.current) {
-          audioSource.current = audioContext.current.createBufferSource();
-          audioSource.current.buffer = audioData.audioBuffer;
-          audioSource.current.connect(audioContext.current.destination);
+        if (audioSource.current) {
+          audioSource.current.stop();
+          audioSource.current = null;
+        }
+
+        if (audioContext.current && audioData.audioBuffer) {
+          const newSource = audioContext.current.createBufferSource();
+          newSource.buffer = audioData.audioBuffer;
+          newSource.connect(audioContext.current.destination);
+
           startTime.current = audioContext.current.currentTime - pauseTime.current;
-          audioSource.current.start(0, pauseTime.current);
+          newSource.start(0, pauseTime.current);
+
+          audioSource.current = newSource;
         } else {
           setAudioState((prev) => ({ ...prev, isPlaying: false }));
         }
       }
     },
-    [audioData, audioState.isPlaying]
+    [audioData, audioState.isPlaying, setError]
   );
 
   useEffect(() => {
@@ -169,9 +191,20 @@ function App() {
             </div>
             <h1 className="text-lg font-semibold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">Audio Visualizer</h1>
           </div>
-          <button onClick={toggleDarkMode} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 dark:bg-gray-800/50 dark:hover:bg-gray-700/50 backdrop-blur-sm transition-colors duration-200 shadow-sm" aria-label="Toggle dark mode">
-            {isDarkMode ? <Sun className="w-4 h-4 text-yellow-500" /> : <Moon className="w-4 h-4 text-gray-600" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <a 
+              href="https://github.com/alkinum/audio-visualizer"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 dark:bg-gray-800/50 dark:hover:bg-gray-700/50 backdrop-blur-sm transition-colors duration-200 shadow-sm"
+              aria-label="View source on GitHub"
+            >
+              <Github className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            </a>
+            <button onClick={toggleDarkMode} className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 dark:bg-gray-800/50 dark:hover:bg-gray-700/50 backdrop-blur-sm transition-colors duration-200 shadow-sm" aria-label="Toggle dark mode">
+              {isDarkMode ? <Sun className="w-4 h-4 text-yellow-500" /> : <Moon className="w-4 h-4 text-gray-600" />}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -195,9 +228,9 @@ function App() {
             <div className="mt-8 space-y-8 animate-fadeIn">
               <AudioPlayer audioState={audioState} onPlayPause={handlePlayPause} onSeek={handleSeek} />
 
-              <Waveform data={audioData.waveformData} height={160} color={isDarkMode ? '#60A5FA' : '#3B82F6'} gradientColor={isDarkMode ? '#2563EB' : '#93C5FD'} currentTime={audioState.currentTime} duration={audioState.duration} />
+              <Waveform data={audioData.waveformData} height={160} color={isDarkMode ? '#60A5FA' : '#3B82F6'} gradientColor={isDarkMode ? '#2563EB' : '#93C5FD'} currentTime={audioState.currentTime} duration={audioState.duration} onTimeChange={handleSeek} />
 
-              <Spectrum data={audioData.spectrumData} height={200} color={isDarkMode ? '#22D3EE' : '#06B6D4'} gradientColor={isDarkMode ? '#0891B2' : '#67E8F9'} currentTime={audioState.currentTime} duration={audioState.duration} />
+              <Spectrum data={audioData.spectrumData} height={200} color={isDarkMode ? '#22D3EE' : '#06B6D4'} gradientColor={isDarkMode ? '#0891B2' : '#67E8F9'} currentTime={audioState.currentTime} duration={audioState.duration} onTimeChange={handleSeek} />
             </div>
           )}
         </div>

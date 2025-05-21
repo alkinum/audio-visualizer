@@ -35,15 +35,16 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
   const offscreenCanvasRef = useRef<OffscreenCanvas | null>(null);
   const previousTimeRef = useRef<number>(currentTime);
   const isDraggingRef = useRef<boolean>(false);
-  const [spectrumDrawn, setSpectrumDrawn] = useState<boolean>(false);
   const animationFrameRef = useRef<number | null>(null);
   const lastDrawnTimeRef = useRef<number>(-1);
   const timeIndicatorLayerRef = useRef<HTMLDivElement>(null);
   const currentTimeRef = useRef<number>(currentTime);
 
-  // Update ref when prop changes to avoid re-renders
   useEffect(() => {
     currentTimeRef.current = currentTime;
+    if (!isDraggingRef.current) {
+      previousTimeRef.current = currentTime;
+    }
   }, [currentTime]);
 
   // Frequency labels (y-axis) - from 20Hz to 16kHz
@@ -74,7 +75,8 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
 
       workerRef.current.onmessage = (event) => {
         if (event.data.type === 'drawComplete') {
-          setSpectrumDrawn(true);
+          // setSpectrumDrawn(true); // Previously updated spectrumDrawn on worker completion
+          // We don't need this reference anymore
         } else if (event.data.type === 'error') {
           setError(event.data.message || 'Error in spectrum worker');
         }
@@ -234,39 +236,36 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   }, []);
 
-  // Update time indicator position directly through DOM for better performance
   const updateTimeIndicator = useCallback(() => {
-    if (!timeIndicatorLayerRef.current || !duration || duration <= 0 || !spectrumDrawn) return;
-
-    const currentTime = currentTimeRef.current;
-
-    // Skip update if the position hasn't changed enough
-    if (Math.abs(lastDrawnTimeRef.current - currentTime) < 0.01) {
+    if (!timeIndicatorLayerRef.current || !containerRef.current || duration <= 0) {
       return;
     }
 
-    lastDrawnTimeRef.current = currentTime;
+    const indicatorLine = timeIndicatorLayerRef.current.querySelector('.time-indicator-line') as HTMLElement | null;
+    const timeLabel = timeIndicatorLayerRef.current.querySelector('.time-indicator-label') as HTMLElement | null;
 
-    // Calculate position for the time indicator
-    const xPos = timeToPosition(currentTime);
-
-    // Update indicator position via direct DOM manipulation
-    const indicatorLine = timeIndicatorLayerRef.current.querySelector('.time-indicator-line') as HTMLElement;
-    const timeLabel = timeIndicatorLayerRef.current.querySelector('.time-indicator-label') as HTMLElement;
-
-    if (indicatorLine && timeLabel) {
-      indicatorLine.style.left = `${xPos}px`;
-      timeLabel.style.left = `${xPos}px`;
-      timeLabel.textContent = formatTimeToMMSS(currentTime);
+    if (!indicatorLine || !timeLabel) {
+      return;
     }
-  }, [timeToPosition, formatTimeToMMSS, duration, spectrumDrawn]);
 
-  // Schedule animation frame for smoother time indicator updates
+    const newIndicatorTime = currentTimeRef.current;
+
+    if (Math.abs(lastDrawnTimeRef.current - newIndicatorTime) < 0.01) {
+      return;
+    }
+
+    lastDrawnTimeRef.current = newIndicatorTime;
+    const xPos = timeToPosition(newIndicatorTime);
+
+    indicatorLine.style.left = `${xPos}px`;
+    timeLabel.style.left = `${xPos}px`;
+    timeLabel.textContent = formatTimeToMMSS(newIndicatorTime);
+  }, [timeToPosition, formatTimeToMMSS, duration, containerHeight]);
+
   const scheduleIndicatorUpdate = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
-
     animationFrameRef.current = requestAnimationFrame(() => {
       updateTimeIndicator();
       animationFrameRef.current = null;
@@ -295,18 +294,18 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
   // Handle mouse down for dragging the time indicator
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!containerRef.current || !duration || duration <= 0) return;
-
+      if (!containerRef.current || !duration || duration <= 0 || !onTimeChange) return;
       const rect = containerRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
-
       isDraggingRef.current = true;
       const newTime = positionToTime(x);
+      currentTimeRef.current = newTime;
+      updateTimeIndicator();
       if (onTimeChange) {
         onTimeChange(newTime);
       }
     },
-    [duration, positionToTime, onTimeChange]
+    [duration, positionToTime, onTimeChange, updateTimeIndicator]
   );
 
   // Handle mouse move for dragging the time indicator
@@ -336,15 +335,10 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
     isDraggingRef.current = false;
   }, []);
 
-  // Update only the time indicator when current time changes
-  // This effect is responsible ONLY for time indicator updates
+  // Update time indicator when currentTime prop changes
   useEffect(() => {
-    if (spectrumDrawn) {
-      scheduleIndicatorUpdate();
-    }
-
-    previousTimeRef.current = currentTime;
-  }, [currentTime, scheduleIndicatorUpdate, spectrumDrawn]);
+    scheduleIndicatorUpdate();
+  }, [currentTime, scheduleIndicatorUpdate]);
 
   // Draw spectrum data when required data is available
   // Critically, does NOT depend on currentTime to prevent unnecessary redraws
@@ -353,17 +347,18 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
 
     const canUseOffscreenCanvas = 'OffscreenCanvas' in window && workerInitialized && workerRef.current && offscreenCanvasRef.current;
 
-    if (canUseOffscreenCanvas && spectrumData.length > 0) {
+    if (canUseOffscreenCanvas && spectrumData.length > 0 && containerWidth > 0 && containerHeight > 0) {
       console.log('Drawing spectrum using worker with data length:', spectrumData.length);
-      setSpectrumDrawn(false);
+      // Even though we don't use spectrumDrawn anymore, we still need to call setSpectrumDrawn
+      // for worker completion handling - we'll call a no-op function instead
+      // setSpectrumDrawn(false);
       postMessageToSpectrumWorker();
     }
-  }, [browserSupported, workerInitialized, spectrumData, postMessageToSpectrumWorker]);
+  }, [browserSupported, workerInitialized, spectrumData, postMessageToSpectrumWorker, containerWidth, containerHeight]);
 
-  // Create initial time indicator DOM elements after the spectrum is drawn
+  // Create initial time indicator DOM elements
   useEffect(() => {
-    if (spectrumDrawn && timeIndicatorLayerRef.current && !timeIndicatorLayerRef.current.querySelector('.time-indicator-line')) {
-      // Create indicator DOM elements
+    if (timeIndicatorLayerRef.current && containerRef.current && duration > 0 && containerHeight > 0 && !timeIndicatorLayerRef.current.querySelector('.time-indicator-line')) {
       const line = document.createElement('div');
       line.className = 'time-indicator-line absolute top-0 bottom-0 w-0.5 bg-red-500 z-10';
       line.style.height = `${containerHeight - PADDING_CONFIG.bottom - PADDING_CONFIG.top}px`;
@@ -371,30 +366,30 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
 
       const timeLabel = document.createElement('div');
       timeLabel.className = 'time-indicator-label absolute text-xs text-white bg-black bg-opacity-50 px-1 py-0.5 rounded -mt-6 -ml-8 w-16 text-center';
-      timeLabel.textContent = formatTimeToMMSS(currentTime);
+      timeLabel.textContent = formatTimeToMMSS(currentTimeRef.current);
 
       timeIndicatorLayerRef.current.appendChild(line);
       timeIndicatorLayerRef.current.appendChild(timeLabel);
 
-      // Run initial update to position elements
       scheduleIndicatorUpdate();
     }
-  }, [spectrumDrawn, containerHeight, PADDING_CONFIG, currentTime, formatTimeToMMSS, scheduleIndicatorUpdate]);
+  }, [containerHeight, duration, formatTimeToMMSS, scheduleIndicatorUpdate]);
 
   // Add document-level mouse event listeners for drag handling
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current || !containerRef.current || !duration) return;
-
+      if (!isDraggingRef.current || !containerRef.current || !duration || !onTimeChange) return;
       const rect = containerRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
-
-      // Ensure x is within bounds
       const boundedX = Math.max(PADDING_CONFIG.left, Math.min(containerWidth - PADDING_CONFIG.right, x));
-
       const newTime = positionToTime(boundedX);
-      if (onTimeChange) {
-        onTimeChange(newTime);
+      if (Math.abs(previousTimeRef.current - newTime) > 0.01) {
+        previousTimeRef.current = newTime;
+        currentTimeRef.current = newTime;
+        updateTimeIndicator();
+        if (onTimeChange) {
+          onTimeChange(newTime);
+        }
       }
     };
 
@@ -409,7 +404,7 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
       document.removeEventListener('mousemove', handleGlobalMouseMove);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [containerWidth, duration, onTimeChange, positionToTime]); // Removed PADDING_CONFIG from dependencies
+  }, [containerWidth, duration, onTimeChange, positionToTime, updateTimeIndicator]);
 
   return (
     <div className="w-full">
