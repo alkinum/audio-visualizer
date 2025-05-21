@@ -5,7 +5,7 @@ import { SpectrumAnalysisProgress } from '../utils/audioProcessor';
 // Define padding and freqLabels outside the component to ensure stable references
 const PADDING_CONFIG = {
   top: 10,
-  right: 64,
+  right: 48,
   bottom: 30,
   left: 16,
 };
@@ -47,17 +47,6 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
     }
   }, [currentTime]);
 
-  // Frequency labels (y-axis) - from 20Hz to 16kHz
-  // const freqLabels = [20, 30, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 16000]; // Moved outside
-
-  // Padding settings
-  // const padding = { // Moved outside
-  //   top: 10,
-  //   right: 64,
-  //   bottom: 30,
-  //   left: 16,
-  // };
-
   // Initialize web worker and check browser support
   useEffect(() => {
     const isOffscreenCanvasSupported = 'OffscreenCanvas' in window;
@@ -74,10 +63,7 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
       });
 
       workerRef.current.onmessage = (event) => {
-        if (event.data.type === 'drawComplete') {
-          // setSpectrumDrawn(true); // Previously updated spectrumDrawn on worker completion
-          // We don't need this reference anymore
-        } else if (event.data.type === 'error') {
+        if (event.data.type === 'error') {
           setError(event.data.message || 'Error in spectrum worker');
         }
       };

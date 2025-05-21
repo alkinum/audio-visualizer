@@ -40,25 +40,25 @@ let ctx: OffscreenCanvasRenderingContext2D | null = null;
 // Handler for messages from the main thread
 self.onmessage = (event: MessageEvent) => {
   const data = event.data as WorkerMessage;
-  
+
   if (data.type === 'canvas') {
     // Store the transferred canvas
     offscreenCanvas = data.canvas;
     ctx = offscreenCanvas.getContext('2d', { alpha: true }) as OffscreenCanvasRenderingContext2D;
-    
+
     // Notify the main thread that we received the canvas
     self.postMessage({ type: 'canvasReady' });
   }
   else if (data.type === 'draw') {
     // Check if we have a canvas to draw on
     if (!offscreenCanvas || !ctx) {
-      self.postMessage({ 
+      self.postMessage({
         type: 'error',
         message: 'No canvas available. Please transfer a canvas first.'
       });
       return;
     }
-    
+
     // Draw the spectrum
     drawSpectrum(data);
   }
@@ -69,12 +69,12 @@ function getFrequencyY(freq: number, drawHeight: number, padding: PaddingConfig)
   // Enhanced logarithmic scaling for low-frequency domain
   const logMin = Math.log10(20); // Minimum frequency 20Hz
   const logMax = Math.log10(16000); // Maximum frequency 16kHz
-  
+
   // Enhanced logarithm to emphasize low-frequency area
   const enhancedLog = Math.log10(freq);
   // Note: Using 1 minus ratio means low frequencies (small values) map to bottom of canvas (large y values)
   const yRatio = 1 - (enhancedLog - logMin) / (logMax - logMin);
-  
+
   return padding.top + yRatio * (drawHeight - padding.top - padding.bottom);
 }
 
@@ -83,7 +83,7 @@ function getSignalColor(magnitude: number): string {
   // Map absolute signal value to 0-1 range for color mapping
   // Based on experience, logarithmic intensity values typically range from 0 to 0.3
   const normalizedMagnitude = Math.min(1, magnitude / 0.3);
-  
+
   // Color definitions
   const colors = {
     low: { r: 59, g: 7, b: 100 },         // Deep purple #3B0764
@@ -92,10 +92,10 @@ function getSignalColor(magnitude: number): string {
     mediumHigh: { r: 225, g: 29, b: 72 }, // Red #E11D48
     high: { r: 249, g: 115, b: 22 }       // Orange #F97316
   };
-  
+
   // Interpolate colors based on mapped signal strength
   let r, g, b;
-  
+
   if (normalizedMagnitude < 0.25) {
     // From deep purple to purple
     const t = normalizedMagnitude / 0.25;
@@ -121,7 +121,7 @@ function getSignalColor(magnitude: number): string {
     g = Math.round(colors.mediumHigh.g + t * (colors.high.g - colors.mediumHigh.g));
     b = Math.round(colors.mediumHigh.b + t * (colors.high.b - colors.mediumHigh.b));
   }
-  
+
   return `rgb(${r}, ${g}, ${b})`;
 }
 
@@ -136,18 +136,18 @@ function formatTimeToMMSS(seconds: number): string {
 function drawSpectrum(data: DrawSpectrumMessage): void {
   if (!ctx || !offscreenCanvas || !data.spectrumData.length) return;
 
-  const { 
-    width, 
-    height, 
-    dpr, 
-    duration, 
-    padding, 
-    freqLabels, 
-    spectrumData 
+  const {
+    width,
+    height,
+    dpr,
+    duration,
+    padding,
+    freqLabels,
+    spectrumData
   } = data;
 
   // Get container width with space for labels
-  const drawWidth = width - padding.right;
+  const drawWidth = width - padding.left - padding.right;
   const canvasHeight = height;
 
   // Adjust canvas size for device pixel ratio

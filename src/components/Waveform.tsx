@@ -4,7 +4,7 @@ import { VisualizationProps } from '../types/audio';
 // Define padding outside the component to ensure stable references
 const WAVEFORM_PADDING_CONFIG = {
   top: 20,
-  right: 64, // Unified with Spectrum.tsx
+  right: 48,
   bottom: 20,
   left: 16,
 };
