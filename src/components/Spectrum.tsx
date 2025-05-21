@@ -361,7 +361,7 @@ const Spectrum: React.FC<SpectrumComponentProps> = memo(({ data: initialData, he
     if (timeIndicatorLayerRef.current && containerRef.current && duration > 0 && containerHeight > 0 && !timeIndicatorLayerRef.current.querySelector('.time-indicator-line')) {
       const line = document.createElement('div');
       line.className = 'time-indicator-line absolute top-0 bottom-0 w-0.5 bg-red-500 z-10';
-      line.style.height = `${containerHeight - PADDING_CONFIG.bottom - PADDING_CONFIG.top}px`;
+      line.style.height = `${containerHeight - PADDING_CONFIG.bottom - PADDING_CONFIG.top / 2}px`;
       line.style.top = `${PADDING_CONFIG.top}px`;
 
       const timeLabel = document.createElement('div');
