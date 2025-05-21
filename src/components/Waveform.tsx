@@ -1,314 +1,236 @@
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import React, { useRef, useEffect, useCallback, useState, memo } from 'react';
 import { VisualizationProps } from '../types/audio';
 
-const Waveform: React.FC<VisualizationProps> = ({ 
-  data, 
-  height = 100,
-  color = '#3B82F6',
-  gradientColor = '#93C5FD',
-  currentTime = 0,
-  duration = 0
-}) => {
+const Waveform: React.FC<VisualizationProps> = memo(({ data, height = 100, color = '#3B82F6', gradientColor = '#93C5FD', currentTime = 0, duration = 0 }) => {
   const [showChannels, setShowChannels] = useState<'combined' | 'separate'>('combined');
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
-  
+  const [browserSupported, setBrowserSupported] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const workerRef = useRef<Worker | null>(null);
+  const offscreenCanvasRef = useRef<OffscreenCanvas | null>(null);
+  const [workerInitialized, setWorkerInitialized] = useState<boolean>(false);
+  const timeIndicatorLayerRef = useRef<HTMLDivElement>(null);
+  const currentTimeRef = useRef<number>(currentTime);
+  const lastDrawnTimeRef = useRef<number>(-1);
+  const animationFrameRef = useRef<number | null>(null);
+  const [waveformDrawn, setWaveformDrawn] = useState(false);
+
   // 内边距设置，为绘制区域预留空间
   const padding = {
     top: 20,
-    right: 42,  // 为右侧电平标签预留空间
+    right: 42, // 为右侧电平标签预留空间
     bottom: 20,
-    left: 16
+    left: 16,
   };
-  
+
+  // 更新 ref 当 prop 变化时，避免触发重新渲染
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  // 检查浏览器支持并初始化 Web Worker
+  useEffect(() => {
+    const isOffscreenCanvasSupported = 'OffscreenCanvas' in window;
+
+    if (!isOffscreenCanvasSupported) {
+      setBrowserSupported(false);
+      setError('Your browser does not support OffscreenCanvas. Please use a modern browser like Chrome, Edge, or Firefox.');
+      return;
+    }
+
+    if (isOffscreenCanvasSupported && !workerRef.current) {
+      try {
+        workerRef.current = new Worker(new URL('../workers/waveformDrawer.ts', import.meta.url), {
+          type: 'module',
+        });
+
+        workerRef.current.onmessage = (event) => {
+          if (event.data.type === 'drawComplete') {
+            setIsLoading(false);
+            setWaveformDrawn(true);
+          } else if (event.data.type === 'error') {
+            setError(event.data.message || 'Error in waveform worker');
+            setIsLoading(false);
+          }
+        };
+
+        setWorkerInitialized(true);
+      } catch (err) {
+        console.error('Failed to initialize waveform worker:', err);
+        setError('Failed to initialize waveform visualization.');
+        setBrowserSupported(false);
+      }
+    }
+
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, []);
+
   // 监听容器大小变化
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     const updateContainerSize = () => {
       if (containerRef.current) {
         setContainerWidth(containerRef.current.clientWidth);
       }
     };
-    
+
     // 初始设置尺寸
     updateContainerSize();
-    
+
     // 添加调整大小监听器
     const resizeObserver = new ResizeObserver(updateContainerSize);
     resizeObserver.observe(containerRef.current);
-    
+
     return () => {
       resizeObserver.disconnect();
     };
   }, []);
-  
-  // 辅助函数：判断是否使用分离通道模式
-  const isSeparateChannelsMode = useCallback(() => {
-    return showChannels === 'separate' && typeof data === 'object' && 'left' in data;
-  }, [showChannels, data]);
-  
-  // 绘制波形图及标签
-  const drawWaveform = useCallback(() => {
-    if (!canvasRef.current || !containerRef.current || !data) return;
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    const width = containerWidth;
-    const dpr = window.devicePixelRatio || 1;
-    
-    // 设置画布大小和缩放
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    ctx.scale(dpr, dpr);
-    
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
-    
-    // 清除画布
-    ctx.clearRect(0, 0, width, height);
-    
-    // 可绘制区域
-    const drawableWidth = width - padding.left - padding.right;
-    const drawableHeight = height - padding.top - padding.bottom;
-    
-         // 绘制背景 - 透明
-     ctx.clearRect(0, 0, width, height);
-    
-      // 绘制分隔线和电平标签
-      if (isSeparateChannelsMode()) {
-        // 双通道模式
-        const gapBetweenChannels = 10;
-        const channelHeight = (drawableHeight - gapBetweenChannels) / 2;
-        
-        // 第一个通道区域
-        const ch1Top = padding.top;
-        const ch1Center = ch1Top + channelHeight / 2;
-        const ch1Bottom = ch1Top + channelHeight;
-        
-        // 第二个通道区域
-        const ch2Top = ch1Bottom + gapBetweenChannels;
-        const ch2Center = ch2Top + channelHeight / 2;
-      
-      // 绘制通道背景
-      drawChannelBackground(ctx, padding.left, ch1Top, drawableWidth, channelHeight);
-      drawChannelBackground(ctx, padding.left, ch2Top, drawableWidth, channelHeight);
-      
-      // 绘制第一个通道的电平线和标签
-      drawLevelLines(ctx, padding.left, ch1Top, drawableWidth, channelHeight, ch1Center);
-      
-      // 绘制第二个通道的电平线和标签
-      drawLevelLines(ctx, padding.left, ch2Top, drawableWidth, channelHeight, ch2Center);
-      
-      // 绘制双通道波形数据
-      if (typeof data === 'object' && 'left' in data) {
-        drawChannelData(ctx, data.left, padding.left, ch1Center, drawableWidth, channelHeight);
-        drawChannelData(ctx, data.right, padding.left, ch2Center, drawableWidth, channelHeight);
-      }
-    } else {
-      // 单通道模式
-      const centerY = padding.top + drawableHeight / 2;
-      
-      // 绘制通道背景
-      drawChannelBackground(ctx, padding.left, padding.top, drawableWidth, drawableHeight);
-      
-      // 绘制电平线和标签
-      drawLevelLines(ctx, padding.left, padding.top, drawableWidth, drawableHeight, centerY);
-      
-      // 绘制波形数据
-      if (typeof data === 'object' && 'left' in data) {
-        drawChannelData(ctx, data.combined, padding.left, centerY, drawableWidth, drawableHeight);
-      } else if (Array.isArray(data)) {
-        if (Array.isArray(data[0])) {
-          drawChannelData(ctx, data[0], padding.left, centerY, drawableWidth, drawableHeight);
-        } else {
-          drawChannelData(ctx, data as number[], padding.left, centerY, drawableWidth, drawableHeight);
-        }
-      }
-    }
-    
-    // 绘制时间指示器
-    if (duration > 0 && currentTime <= duration) {
-      const position = padding.left + (currentTime / duration) * drawableWidth;
-      
-      ctx.strokeStyle = '#FF5252';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(position, padding.top);
-      ctx.lineTo(position, height - padding.bottom);
-      ctx.stroke();
-    }
-    
-  }, [data, height, containerWidth, padding, showChannels, isSeparateChannelsMode, color, gradientColor, currentTime, duration]);
-  
-     // 绘制通道背景
-   const drawChannelBackground = (
-     ctx: CanvasRenderingContext2D,
-     x: number,
-     y: number,
-     width: number,
-     height: number
-   ) => {
-     // 绘制边框
-     ctx.strokeStyle = 'rgba(180, 180, 180, 0.3)';
-     ctx.lineWidth = 0.5;
-     ctx.strokeRect(x, y, width, height);
-   };
-  
-  // 绘制电平线和标签
-  const drawLevelLines = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    centerY: number
-  ) => {
-         // 电平标记值 (单位：dB)
-     const levelMarks = [
-       { level: 0, percentage: 1.0 },   // 0dB (最大电平)
-       { level: -3, percentage: 0.7 },
-       { level: -6, percentage: 0.5 },
-       { level: -12, percentage: 0.25 }
-     ];
-    
-    // 绘制中心线
-    ctx.strokeStyle = 'rgba(180, 180, 180, 0.8)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x, centerY);
-    ctx.lineTo(x + width, centerY);
-    ctx.stroke();
-    
-         // 设置文本样式
-     ctx.font = '8px Arial';
-     ctx.fillStyle = '#666';
-     ctx.textAlign = 'left';
-     ctx.textBaseline = 'middle';
-    
-    // 绘制中心线标签 (-∞ dB)
-    ctx.fillText('-∞ dB', x + width + 5, centerY);
-    
-    // 绘制上半部分电平线和标签
-    levelMarks.forEach(({ level, percentage }) => {
-      const yPos = centerY - (height / 2) * percentage;
-      
-      // 绘制电平线
-      ctx.strokeStyle = 'rgba(180, 180, 180, 0.5)';
-      ctx.beginPath();
-      ctx.moveTo(x, yPos);
-      ctx.lineTo(x + width, yPos);
-      ctx.stroke();
-      
-      // 绘制电平标签
-      ctx.fillText(`${level} dB`, x + width + 5, yPos);
-    });
-    
-    // 绘制下半部分电平线和标签
-    levelMarks.forEach(({ level, percentage }) => {
-      const yPos = centerY + (height / 2) * percentage;
-      
-      // 绘制电平线
-      ctx.strokeStyle = 'rgba(180, 180, 180, 0.5)';
-      ctx.beginPath();
-      ctx.moveTo(x, yPos);
-      ctx.lineTo(x + width, yPos);
-      ctx.stroke();
-      
-      // 绘制电平标签
-      ctx.fillText(`${level} dB`, x + width + 5, yPos);
-    });
-  };
-  
-  // 绘制波形数据
-  const drawChannelData = (
-    ctx: CanvasRenderingContext2D,
-    channelData: number[],
-    x: number,
-    centerY: number,
-    width: number,
-    height: number
-  ) => {
-    // 创建渐变色
-    const gradient = ctx.createLinearGradient(0, centerY - height / 2, 0, centerY + height / 2);
-    gradient.addColorStop(0, color);
-    gradient.addColorStop(1, gradientColor || color);
-    
-    // 计算每个样本点的宽度
-    const barWidth = width / channelData.length;
-    
-    // 设置绘图样式
-    ctx.fillStyle = gradient;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.5;
-    
-    // 开始绘制波形路径
-    ctx.beginPath();
-    
-    // 从左到右绘制上半部分波形
-    for (let i = 0; i < channelData.length; i++) {
-      const sampleX = x + i * barWidth;
-      const amplitude = channelData[i] * height / 2; // 归一化振幅
-      
-      if (i === 0) {
-        ctx.moveTo(sampleX, centerY - amplitude);
-      } else {
-        // 使用二次贝塞尔曲线使波形更平滑
-        const prevX = x + (i - 1) * barWidth;
-        const controlX = (prevX + sampleX) / 2;
-        const prevY = centerY - channelData[i - 1] * height / 2;
-        
-        ctx.quadraticCurveTo(
-          controlX, prevY,
-          sampleX, centerY - amplitude
-        );
-      }
-    }
-    
-    // 从右到左绘制下半部分波形
-    for (let i = channelData.length - 1; i >= 0; i--) {
-      const sampleX = x + i * barWidth;
-      const amplitude = channelData[i] * height / 2;
-      
-      if (i === channelData.length - 1) {
-        ctx.lineTo(sampleX, centerY + amplitude);
-      } else {
-        // 使用二次贝塞尔曲线使波形更平滑
-        const nextX = x + (i + 1) * barWidth;
-        const controlX = (nextX + sampleX) / 2;
-        const nextY = centerY + channelData[i + 1] * height / 2;
-        
-        ctx.quadraticCurveTo(
-          controlX, nextY,
-          sampleX, centerY + amplitude
-        );
-      }
-    }
-    
-    // 闭合路径并填充
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  };
-  
-  // 使用 useEffect 监听数据变化并重绘
+
+  // 设置 OffscreenCanvas
   useEffect(() => {
-    drawWaveform();
-  }, [drawWaveform]);
-  
+    if (canvasRef.current && workerInitialized && workerRef.current && 'transferControlToOffscreen' in canvasRef.current && !offscreenCanvasRef.current && browserSupported) {
+      offscreenCanvasRef.current = canvasRef.current.transferControlToOffscreen();
+
+      workerRef.current.postMessage(
+        {
+          type: 'canvas',
+          canvas: offscreenCanvasRef.current,
+        },
+        [offscreenCanvasRef.current]
+      );
+    }
+  }, [canvasRef, workerInitialized, browserSupported]);
+
+  // 转换当前时间到 X 坐标位置
+  const timeToPosition = useCallback(
+    (time: number): number => {
+      if (!duration || duration <= 0) return padding.left;
+      const drawWidth = containerWidth - padding.left - padding.right;
+      return padding.left + (time / duration) * drawWidth;
+    },
+    [containerWidth, padding, duration]
+  );
+
+  // 将秒转换为 mm:ss 格式
+  const formatTimeToMMSS = useCallback((seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }, []);
+
+  // 通过 DOM 直接更新时间指示器位置以提高性能
+  const updateTimeIndicator = useCallback(() => {
+    if (!timeIndicatorLayerRef.current || !duration || duration <= 0 || !waveformDrawn) return;
+
+    const currentTime = currentTimeRef.current;
+
+    // 如果位置变化不够明显，跳过更新
+    if (Math.abs(lastDrawnTimeRef.current - currentTime) < 0.01) {
+      return;
+    }
+
+    lastDrawnTimeRef.current = currentTime;
+
+    // 计算时间指示器位置
+    const xPos = timeToPosition(currentTime);
+
+    // 通过直接 DOM 操作更新指示器位置
+    const indicatorLine = timeIndicatorLayerRef.current.querySelector('.time-indicator-line') as HTMLElement;
+    const timeLabel = timeIndicatorLayerRef.current.querySelector('.time-indicator-label') as HTMLElement;
+
+    if (indicatorLine && timeLabel) {
+      indicatorLine.style.left = `${xPos}px`;
+      timeLabel.style.left = `${xPos}px`;
+      timeLabel.textContent = formatTimeToMMSS(currentTime);
+    }
+  }, [timeToPosition, formatTimeToMMSS, duration, waveformDrawn]);
+
+  const scheduleIndicatorUpdate = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    animationFrameRef.current = requestAnimationFrame(() => {
+      updateTimeIndicator();
+      animationFrameRef.current = null;
+    });
+  }, [updateTimeIndicator]);
+
+  const drawWaveformUsingWorker = useCallback(() => {
+    if (!workerRef.current || !offscreenCanvasRef.current || !data || containerWidth === 0) return;
+
+    setIsLoading(true);
+    setWaveformDrawn(false);
+
+    workerRef.current.postMessage({
+      type: 'draw',
+      data,
+      width: containerWidth,
+      height,
+      padding,
+      color,
+      gradientColor,
+      duration,
+      showChannels,
+      dpr: window.devicePixelRatio || 1,
+    });
+  }, [data, containerWidth, height, padding, color, gradientColor, duration, showChannels]);
+
+  useEffect(() => {
+    if (!browserSupported) return;
+
+    const canUseOffscreenCanvas = 'OffscreenCanvas' in window && workerInitialized && workerRef.current && offscreenCanvasRef.current;
+
+    if (canUseOffscreenCanvas && data) {
+      drawWaveformUsingWorker();
+    }
+  }, [browserSupported, workerInitialized, drawWaveformUsingWorker, data, containerWidth, showChannels]);
+
+  useEffect(() => {
+    if (waveformDrawn && timeIndicatorLayerRef.current && !timeIndicatorLayerRef.current.querySelector('.time-indicator-line')) {
+      // 创建指示器 DOM 元素
+      const line = document.createElement('div');
+      line.className = 'time-indicator-line absolute top-0 bottom-0 w-0.5 bg-red-500 z-10';
+      line.style.height = `${height - padding.bottom - padding.top}px`;
+      line.style.top = `${padding.top}px`;
+
+      const timeLabel = document.createElement('div');
+      timeLabel.className = 'time-indicator-label absolute text-xs text-white bg-black bg-opacity-50 px-1 py-0.5 rounded -mt-6 -ml-8 w-16 text-center';
+      timeLabel.textContent = formatTimeToMMSS(currentTime);
+
+      timeIndicatorLayerRef.current.appendChild(line);
+      timeIndicatorLayerRef.current.appendChild(timeLabel);
+
+      scheduleIndicatorUpdate();
+    }
+  }, [waveformDrawn, height, padding, currentTime, formatTimeToMMSS, scheduleIndicatorUpdate]);
+
+  useEffect(() => {
+    if (waveformDrawn) {
+      scheduleIndicatorUpdate();
+    }
+  }, [currentTime, scheduleIndicatorUpdate, waveformDrawn]);
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">
-          Waveform
-        </h3>
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">Waveform</h3>
         {typeof data === 'object' && 'left' in data && (
           <button
-            onClick={() => setShowChannels(prev => prev === 'combined' ? 'separate' : 'combined')}
+            onClick={() => setShowChannels((prev) => (prev === 'combined' ? 'separate' : 'combined'))}
             className="px-3 py-1.5 text-xs font-medium rounded-md 
               bg-blue-50 text-blue-600 border border-blue-100
               dark:bg-gray-800 dark:text-blue-400 dark:border-gray-700
@@ -321,18 +243,28 @@ const Waveform: React.FC<VisualizationProps> = ({
           </button>
         )}
       </div>
-      <div 
-        ref={containerRef} 
-        className="relative border border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm overflow-hidden"
-      >
-        <canvas 
-          ref={canvasRef} 
-          className="w-full h-full"
-          style={{ height: `${height}px` }}
-        />
+      <div ref={containerRef} className="relative border border-gray-200 dark:border-gray-700 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm overflow-hidden">
+        {isLoading && <div className="absolute inset-0 flex items-center justify-center z-20 text-gray-500">Loading waveform...</div>}
+
+        {error && <div className="absolute inset-0 flex items-center justify-center z-20 text-red-500 p-4 text-center">{error}</div>}
+
+        {!browserSupported && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-20 text-amber-600 p-4 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="text-lg font-bold mb-2">Browser Not Supported</div>
+            <p>Your browser does not support OffscreenCanvas.</p>
+            <p>Please use a modern browser like Chrome, Edge, or Firefox.</p>
+          </div>
+        )}
+
+        <canvas ref={canvasRef} className="w-full h-full" style={{ height: `${height}px` }} />
+
+        <div ref={timeIndicatorLayerRef} className="absolute inset-0 pointer-events-none"></div>
       </div>
     </div>
   );
-};
+});
 
 export default Waveform;

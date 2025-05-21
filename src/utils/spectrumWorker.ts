@@ -17,7 +17,6 @@ interface ProgressMessage {
   progress: number; // 0-100
   currentSlice: number;
   totalSlices: number;
-  partialResult?: number[][]; // 已经分析的部分结果
 }
 
 interface ResultMessage {
@@ -203,14 +202,13 @@ async function analyzeSpectrum(
     // 发送进度更新
     const progress = Math.round((sliceIndex + 1) / numSlices * 100);
 
-    // 每处理一定数量的片段发送一次进度更新和部分结果
+    // 每处理一定数量的片段发送一次进度更新
     if (sliceIndex % progressInterval === 0 || sliceIndex === numSlices - 1) {
       self.postMessage({
         type: 'progress',
         progress,
         currentSlice: sliceIndex + 1,
-        totalSlices: numSlices,
-        partialResult: spectrumData.slice() // 发送当前已处理的结果副本
+        totalSlices: numSlices
       } as ProgressMessage);
     }
 

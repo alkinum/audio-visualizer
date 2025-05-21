@@ -9,7 +9,7 @@ export interface SpectrumAnalysisProgress {
   progress: number; // 0-100
   currentSlice: number;
   totalSlices: number;
-  partialData?: number[][];
+  partialData?: number[][]; // Kept for backward compatibility but will only be populated on completion
 }
 
 export const processAudioFile = async (
@@ -92,6 +92,7 @@ const analyzeSpectrumWithWorker = (
   return new Promise((resolve, reject) => {
     try {
       const worker = createSpectrumWorker();
+      let finalSpectrumData: number[][] | null = null;
 
       // 提取所有通道的音频数据
       const audioChannelData: Float32Array[] = [];
@@ -110,11 +111,22 @@ const analyzeSpectrumWithWorker = (
               progress: data.progress,
               currentSlice: data.currentSlice,
               totalSlices: data.totalSlices,
-              partialData: data.partialResult
             });
           }
         }
         else if (data.type === 'result') {
+          finalSpectrumData = data.spectrumData;
+          
+          // On complete, send the final data with 100% progress
+          if (onProgress && finalSpectrumData) {
+            onProgress({
+              progress: 100,
+              currentSlice: data.totalSlices || finalSpectrumData.length,
+              totalSlices: data.totalSlices || finalSpectrumData.length,
+              partialData: finalSpectrumData
+            });
+          }
+          
           resolve(data.spectrumData);
           worker.terminate(); // 释放Worker资源
         }
@@ -138,7 +150,7 @@ const analyzeSpectrumWithWorker = (
         audioData: audioChannelData,
         sampleRate: audioBuffer.sampleRate,
         duration: audioBuffer.duration,
-        timeSlice: 0.05, // 100ms 时间片段
+        timeSlice: 0.05, // 50ms 时间片段
         channels: audioBuffer.numberOfChannels
       });
 
