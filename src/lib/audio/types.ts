@@ -3,6 +3,22 @@ export type WaveformMode = 'combined' | 'split';
 export type SpectrogramMode = 'combined' | 'lr' | 'ms';
 export type AnalysisChannel = 'combined' | 'left' | 'right' | 'mid' | 'side';
 
+export interface OfflineAnalysis {
+  channels: Record<AnalysisChannel, Float32Array>;
+  frameCount: number;
+  binCount: number;
+  duration: number;
+  sampleRate: number;
+  minDb: number;
+  maxDb: number;
+}
+
+export interface AnalysisProgress {
+  progress: number;
+  frame: number;
+  totalFrames: number;
+}
+
 export interface PeakSeries {
   min: Float32Array;
   max: Float32Array;
@@ -17,6 +33,7 @@ export interface WaveformData {
 export interface DecodedAudio {
   buffer: AudioBuffer;
   waveform: WaveformData;
+  analysis?: OfflineAnalysis;
 }
 
 export interface PlaybackSnapshot {

@@ -16,6 +16,9 @@ npm run build
 - polarity-inverted L/R input produces Side energy and a suppressed Mid result
 - sample-rate-specific Nyquist values cap labels and bins correctly
 
+Automated evidence: `npm run test` passes four DSP tests covering the first four
+checks above. Browser fixture verification remains in the release milestone.
+
 ## Browser Flows
 
 - load a stereo WAV through the picker and through drag/drop

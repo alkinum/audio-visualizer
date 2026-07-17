@@ -2,10 +2,12 @@
   import { onMount } from 'svelte';
   import { AudioWaveform, CodeXml, Moon, Pause, Play, Sun } from '@lucide/svelte';
   import FileDropzone from '$lib/components/FileDropzone.svelte';
+  import Spectrogram from '$lib/components/Spectrogram.svelte';
   import Waveform from '$lib/components/Waveform.svelte';
+  import { analyzeAudioBuffer, type AnalysisTask } from '$lib/audio/analysis';
   import { decodeAudioFile } from '$lib/audio/decode';
   import { PlaybackEngine } from '$lib/audio/playback';
-  import type { DecodedAudio, PlaybackSnapshot, ResolvedTheme } from '$lib/audio/types';
+  import type { AnalysisProgress, DecodedAudio, PlaybackSnapshot, ResolvedTheme } from '$lib/audio/types';
   import { formatBytes, formatFrequency, formatTime } from '$lib/format';
 
   const EMPTY_PLAYBACK: PlaybackSnapshot = {
@@ -21,6 +23,8 @@
   let busy = $state(false);
   let error = $state('');
   let theme = $state<ResolvedTheme>('dark');
+  let analysisProgress = $state<AnalysisProgress | null>(null);
+  let analysisTask = $state<AnalysisTask | null>(null);
   let decodeGeneration = 0;
 
   onMount(() => {
@@ -63,6 +67,7 @@
       cancelAnimationFrame(animationFrame);
       mediaQuery.removeEventListener('change', handleSystemTheme);
       window.removeEventListener('keydown', handleKeyboard);
+      analysisTask?.cancel();
       void engine?.destroy();
     };
   });
@@ -88,6 +93,9 @@
     const generation = ++decodeGeneration;
     busy = true;
     error = '';
+    analysisTask?.cancel();
+    analysisTask = null;
+    analysisProgress = null;
     selectedFile = file;
     decoded = null;
     playback = { ...EMPTY_PLAYBACK };
@@ -103,6 +111,19 @@
         if (engine) playback = engine.snapshot;
       });
       playback = engine.snapshot;
+
+      const task = analyzeAudioBuffer(nextAudio.buffer, (progress) => {
+        if (generation === decodeGeneration) analysisProgress = progress;
+      });
+      analysisTask = task;
+      const analysis = await task.promise;
+      if (generation !== decodeGeneration) return;
+      decoded = { ...nextAudio, analysis };
+      analysisProgress = {
+        progress: 100,
+        frame: analysis.frameCount,
+        totalFrames: analysis.frameCount,
+      };
     } catch (cause) {
       if (generation !== decodeGeneration) return;
       console.error('Audio decode failed', cause);
@@ -260,6 +281,20 @@
           {theme}
           onSeek={(time) => void seek(time)}
         />
+        {#if decoded.analysis}
+          <Spectrogram
+            analysis={decoded.analysis}
+            duration={playback.duration}
+            currentTime={playback.currentTime}
+            {theme}
+            onSeek={(time) => void seek(time)}
+          />
+        {:else if analysisProgress && analysisProgress.progress < 100}
+          <div class="analysis-progress" aria-live="polite">
+            <span>Preparing spectrum</span>
+            <strong>{analysisProgress.progress}%</strong>
+          </div>
+        {/if}
       </div>
     {/if}
   </main>

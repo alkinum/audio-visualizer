@@ -6,14 +6,14 @@ Last audited: 2026-07-18
 
 The repository now runs on SvelteKit 2, Svelte 5, Vite 8, and the Cloudflare
 adapter. It can load and decode an audio file in the browser, play or seek it,
-render a responsive waveform, switch persisted light and dark themes, and build
-the adapter-generated Worker and assets for Cloudflare.
+render a responsive waveform and bounded offline spectrogram, switch persisted
+light and dark themes, and build the adapter-generated Worker and assets for
+Cloudflare.
 
 ## Confirmed Gaps
 
-- Offline spectral analysis has not been migrated yet.
-- The current SvelteKit workspace does not yet display a spectrogram.
-- Its renderer assumes a 44.1 kHz source and labels only up to 16 kHz.
+- The offline pipeline is now sample-rate aware and maps to the source Nyquist.
+- Offline analysis currently has no live frequency-response or phase scope.
 - No real-time frequency-response analyzer exists.
 - No phase scope, vectorscope, or correlation meter exists.
 - Static visualization requires OffscreenCanvas with no main-thread fallback.
@@ -53,8 +53,12 @@ browser, deploys through Cloudflare, retains every existing workflow, and adds:
   Space and arrow keyboard controls, and waveform pointer seeking.
 - Added semantic light and dark tokens with system fallback and persistence.
 - Added Cloudflare dry-run evidence without external upload or storage.
+- Added a typed FFT Worker with bounded frames, log-frequency bins, progress,
+  cancellation, and Combined, L/R, Mid, and Side outputs.
+- Added `Mix`, `L / R`, and `M / S` spectrogram views with shared seek behavior.
+- Added pure DSP tests for FFT and channel separation behavior.
 
 ## Next Milestone
 
-Add the Worker-backed FFT pipeline with bounded log-frequency frames and
-combined, L/R, and Mid/Side modes.
+Connect the playback analyzer graph to live frequency-response and phase-scope
+canvases, with lifecycle cleanup on pause, seek, replacement, and teardown.

@@ -16,7 +16,7 @@ Acceptance gate:
 - `wrangler deploy --dry-run` reads the generated Worker and assets
 - `wrangler types --check` confirms the generated binding types
 
-## Milestone 2: Offline Spectral Analysis
+## Milestone 2: Offline Spectral Analysis - Complete
 
 Deliverables:
 
@@ -30,6 +30,10 @@ Acceptance gate:
 
 - DSP unit tests cover FFT peak location and Mid/Side channel math
 - a stereo fixture visibly separates channel-specific content
+
+Evidence: `src/lib/audio/dsp.test.ts` covers FFT location, bounded frames,
+in-phase Mid dominance, and polarity-inverted Side dominance. The Svelte page
+renders the three display modes from Worker output.
 
 ## Milestone 3: Real-Time Analysis
 
