@@ -27,15 +27,18 @@ checks above. Browser fixture verification remains in the release milestone.
 - use Space and Left/Right arrow keyboard controls outside editable fields
 - switch combined, L/R, and M/S spectrogram views
 - observe live response, phase image, and correlation during playback
-- replace a file while analysis is running without stale results appearing
+- replacing a file cancels the prior Worker and prevents stale results from
+  replacing the new session
 
-Verified on 2026-07-18 with a generated 48 kHz stereo WAV:
+Verified on 2026-07-18 with generated 48 kHz stereo WAV fixtures:
 
 - file upload, offline analysis, waveform, and seek surfaces rendered
 - `Mix`, `L / R`, and `M / S` buttons entered their active states
 - playback produced non-empty response and phase canvases
 - live response showed separate 440 Hz and 880 Hz peaks
 - favicon and application resources loaded with zero console errors
+- replacing a 30 second fixture with the short fixture left only the short
+  file selected and its fresh analysis visible
 
 ## Visual Matrix
 
@@ -47,8 +50,8 @@ Verified on 2026-07-18 with a generated 48 kHz stereo WAV:
 Check text fit, control wrapping, canvas visibility, theme contrast, focus rings,
 and the absence of unintended horizontal scrolling in every viewport.
 
-Current screenshot evidence exists for 1440 x 1000 dark and 390 x 844 dark.
-The remaining light and tablet captures are part of Milestone 4.
+Screenshot evidence exists for all four target viewports and themes listed
+above. The browser reported no horizontal overflow and no console errors.
 
 ## Cloudflare Gate
 

@@ -14,7 +14,7 @@ SvelteKit route
 The route is server-renderable as an empty application shell. Browser APIs are
 created only after mount or after a user action.
 
-## Proposed Modules
+## Implemented Modules
 
 ### `src/lib/audio/types.ts`
 

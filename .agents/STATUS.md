@@ -22,8 +22,9 @@ Cloudflare.
 
 ## Target State
 
-The target is a SvelteKit audio-analysis workstation that runs fully in the
-browser, deploys through Cloudflare, retains every existing workflow, and adds:
+The target is now implemented as a SvelteKit audio-analysis workstation that
+runs fully in the browser, deploys through Cloudflare, retains every existing
+workflow, and adds:
 
 - combined stereo spectrogram
 - separate left and right spectrograms
@@ -31,6 +32,18 @@ browser, deploys through Cloudflare, retains every existing workflow, and adds:
 - real-time log-frequency response curves
 - real-time stereo phase image and correlation
 - responsive, accessible light and dark themes
+
+## Release Evidence
+
+- `npm run check`: passed
+- `npm run lint`: passed
+- `npm run test`: passed, 7 tests
+- `npm run build`: passed with Cloudflare adapter output
+- `npx wrangler deploy --dry-run`: passed
+- `npx wrangler types --check`: passed
+- `npm audit --omit=dev`: 0 production vulnerabilities
+- Playwright: desktop, tablet, and mobile light/dark screenshots passed with
+  no console errors or horizontal overflow
 
 ## Active Risks
 

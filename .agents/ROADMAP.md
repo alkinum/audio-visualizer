@@ -53,7 +53,7 @@ Evidence: `LiveRack.svelte` owns one animation loop for both canvases and stops
 redrawing when paused. Browser playback of a 440 Hz left and 880 Hz right
 fixture produced two response peaks, a non-empty phase image, and correlation.
 
-## Milestone 4: Product UI
+## Milestone 4: Product UI - Complete
 
 Deliverables:
 
@@ -68,7 +68,11 @@ Acceptance gate:
 - desktop and mobile screenshots pass visual review in both themes
 - no overlap, clipped labels, unstable canvas sizing, or inaccessible controls
 
-## Milestone 5: Release Hardening
+Evidence: Playwright screenshots cover 1440 x 1000 light and dark, 768 x 1024
+light, and 390 x 844 dark. The browser reports no horizontal overflow and all
+four canvas backing stores have stable dimensions.
+
+## Milestone 5: Release Hardening - Complete
 
 Deliverables:
 
@@ -80,3 +84,8 @@ Deliverables:
 Acceptance gate:
 
 - all requirements have direct file, test, build, or browser evidence
+
+Evidence: README, verification matrix, Cloudflare dry-run, generated type check,
+seven passing DSP and metering tests, and the rolling commit history are in
+place. A production publish was intentionally not run because no deployment
+authorization or target account was provided.

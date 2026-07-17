@@ -1,72 +1,76 @@
 # Audio Visualizer
 
-A modern web-based audio visualization tool that transforms audio files into beautiful waveform and spectrum visualizations.
+Audio Visualizer is a browser-local stereo analysis workstation. Audio files
+are decoded and analyzed on the device. No upload endpoint, account, or
+storage binding is required.
 
-## Features
+## Current Features
 
-- **Waveform Visualization**: See a detailed waveform representation of your audio
-- **Spectrum Analysis**: Real-time frequency spectrum visualization
-- **User-friendly Controls**: Simple audio playback with keyboard shortcuts
-- **File Dropzone**: Easy drag-and-drop interface for uploading audio files
-- **Responsive Design**: Works on desktop and mobile devices
-- **Dark/Light Mode**: Toggle between dark and light themes
+- drag and drop or file-picker loading for common browser-decodable audio
+- waveform overview with combined and split L/R views
+- keyboard transport: Space toggles playback, arrow keys seek five seconds
+- bounded log-frequency spectrogram from 20 Hz to source Nyquist
+- Combined stereo, Left / Right, and Mid / Side spectrogram views
+- real-time combined frequency response with L/R traces
+- real-time stereo phase image and correlation classification
+- persisted light and dark themes
+- responsive desktop, tablet, and mobile workspace layouts
 
-## Tech Stack
+## Stack
 
-- React 18
-- TypeScript
-- Web Audio API
-- Tailwind CSS
-- Vite
+- SvelteKit 2 and Svelte 5
+- Vite 8 and TypeScript
+- Web Audio API and a typed analysis Web Worker
+- native CSS tokens and canvas rendering
+- Cloudflare Workers through `@sveltejs/adapter-cloudflare`
 
-## Getting Started
+## Local Development
 
-### Prerequisites
-
-- Node.js 18 or later
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/alkinum/audio-visualizer.git
-   cd audio-visualizer
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
-
-4. Open your browser and navigate to `http://localhost:5173`
-
-## Building for Production
-
-To build the application for production:
+Requirements: Node.js 20 or newer and npm.
 
 ```bash
-npm run build
+npm install
+npm run dev
 ```
 
-The build artifacts will be stored in the `dist/` directory.
+The Vite server prints the local URL. Audio processing stays in the browser.
 
-## Deployment
+## Verification Commands
 
-This project is configured for deployment to Cloudflare Pages:
+```bash
+npm run check
+npm run lint
+npm run test
+npm run build
+npx wrangler types --check
+npx wrangler deploy --dry-run
+```
 
-1. Push your code to GitHub
-2. Connect your repository to Cloudflare Pages
-3. Configure the build settings:
-   - Build command: `npm run build`
-   - Build output directory: `dist`
+`npm run test` covers FFT peak location, bounded frame planning, Mid / Side
+separation, RMS dB combination, and phase correlation math.
 
-A wrangler.toml file is included for Cloudflare Pages deployment.
+## Cloudflare Deployment
+
+The repository uses a Worker deployment rather than the legacy Pages directory
+upload. Authenticate Wrangler once with `npx wrangler login`, then run:
+
+```bash
+npm run deploy
+```
+
+The generated Worker entry is `.svelte-kit/cloudflare/_worker.js` and assets
+are served from `.svelte-kit/cloudflare`. Use `npx wrangler deploy --dry-run`
+to validate the bundle without publishing it.
+
+## Project Documents
+
+The durable project plan lives in [`.agents/`](.agents/):
+
+- [`STATUS.md`](.agents/STATUS.md): implementation state and evidence
+- [`ROADMAP.md`](.agents/ROADMAP.md): milestones and acceptance gates
+- [`ARCHITECTURE.md`](.agents/ARCHITECTURE.md): DSP and runtime boundaries
+- [`DESIGN.md`](.agents/DESIGN.md): UI tokens and interaction rules
+- [`VERIFICATION.md`](.agents/VERIFICATION.md): automated and browser checks
 
 ## License
 
