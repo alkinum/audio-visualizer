@@ -1,0 +1,73 @@
+# Roadmap
+
+## Milestone 1: Platform Migration
+
+Deliverables:
+
+- SvelteKit 2 and Svelte 5 application shell
+- Cloudflare adapter and Wrangler configuration
+- browser-only audio workspace with SSR-safe initialization
+- retained drag/drop, decode, play, pause, seek, and keyboard controls
+- retained waveform with combined and split-channel display
+
+Acceptance gate:
+
+- `npm run check`, `npm run lint`, and `npm run build` pass
+- the production build targets Cloudflare without Node-only runtime code
+
+## Milestone 2: Offline Spectral Analysis
+
+Deliverables:
+
+- typed FFT Worker with Hann windowing
+- sample-rate-aware 20 Hz to Nyquist mapping
+- bounded log-frequency bins and bounded time frames
+- combined, L/R, and Mid/Side display modes
+- progressive analysis status and cancellation when a file is replaced
+
+Acceptance gate:
+
+- DSP unit tests cover FFT peak location and Mid/Side channel math
+- a stereo fixture visibly separates channel-specific content
+
+## Milestone 3: Real-Time Analysis
+
+Deliverables:
+
+- Web Audio analyzer graph for L, R, Mid, and Side
+- real-time frequency-response canvas with smoothing and peak hold
+- real-time phase image with correlation value
+- clean lifecycle on pause, seek, file replacement, and component teardown
+
+Acceptance gate:
+
+- analyzers update only while playing
+- no duplicate audible routing or gain change is introduced
+
+## Milestone 4: Product UI
+
+Deliverables:
+
+- professional audio-workstation hierarchy
+- semantic light and dark color tokens with persisted mode
+- desktop cockpit layout and explicit tablet/mobile collapse
+- loading, empty, ready, playback, analysis, and error states
+- complete keyboard and pointer interaction
+
+Acceptance gate:
+
+- desktop and mobile screenshots pass visual review in both themes
+- no overlap, clipped labels, unstable canvas sizing, or inaccessible controls
+
+## Milestone 5: Release Hardening
+
+Deliverables:
+
+- README aligned with SvelteKit and Cloudflare workflow
+- completed verification record
+- final status and known-limitations audit
+- rolling commits following `type:   description`
+
+Acceptance gate:
+
+- all requirements have direct file, test, build, or browser evidence
