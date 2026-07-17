@@ -29,6 +29,14 @@ checks above. Browser fixture verification remains in the release milestone.
 - observe live response, phase image, and correlation during playback
 - replace a file while analysis is running without stale results appearing
 
+Verified on 2026-07-18 with a generated 48 kHz stereo WAV:
+
+- file upload, offline analysis, waveform, and seek surfaces rendered
+- `Mix`, `L / R`, and `M / S` buttons entered their active states
+- playback produced non-empty response and phase canvases
+- live response showed separate 440 Hz and 880 Hz peaks
+- favicon and application resources loaded with zero console errors
+
 ## Visual Matrix
 
 - 1440 x 1000 light
@@ -38,6 +46,9 @@ checks above. Browser fixture verification remains in the release milestone.
 
 Check text fit, control wrapping, canvas visibility, theme contrast, focus rings,
 and the absence of unintended horizontal scrolling in every viewport.
+
+Current screenshot evidence exists for 1440 x 1000 dark and 390 x 844 dark.
+The remaining light and tablet captures are part of Milestone 4.
 
 ## Cloudflare Gate
 

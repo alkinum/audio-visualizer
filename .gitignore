@@ -12,7 +12,9 @@ dist
 dist-ssr
 .svelte-kit
 .wrangler
+.playwright-cli
 build
+output
 worker-configuration.d.ts
 *.local
 

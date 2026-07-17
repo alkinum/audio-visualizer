@@ -13,9 +13,8 @@ Cloudflare.
 ## Confirmed Gaps
 
 - The offline pipeline is now sample-rate aware and maps to the source Nyquist.
-- Offline analysis currently has no live frequency-response or phase scope.
-- No real-time frequency-response analyzer exists.
-- No phase scope, vectorscope, or correlation meter exists.
+- The live analyzer now renders combined frequency response, L/R overlays, a
+  phase image, and correlation. Peak hold and export are not in scope.
 - Static visualization requires OffscreenCanvas with no main-thread fallback.
 - Audio analysis returns nested JavaScript arrays with avoidable memory cost.
 - The theme choice is now persisted and follows the system until changed.
@@ -57,8 +56,15 @@ browser, deploys through Cloudflare, retains every existing workflow, and adds:
   cancellation, and Combined, L/R, Mid, and Side outputs.
 - Added `Mix`, `L / R`, and `M / S` spectrogram views with shared seek behavior.
 - Added pure DSP tests for FFT and channel separation behavior.
+- Added a real-time frequency-response curve with combined stereo energy and
+  L/R overlays from 20 Hz to the source Nyquist.
+- Added a real-time stereo phase image and correlation classification.
+- Optimized live canvases to redraw only during playback and resize backing
+  stores only when the viewport changes.
+- Verified the complete flow in a real browser with a 48 kHz stereo fixture.
 
 ## Next Milestone
 
-Connect the playback analyzer graph to live frequency-response and phase-scope
-canvases, with lifecycle cleanup on pause, seek, replacement, and teardown.
+Finish the product UI and release-hardening milestones: full light/dark and
+responsive browser matrix, README migration, final Cloudflare and requirement
+audit, and release documentation.

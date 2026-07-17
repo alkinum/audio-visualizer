@@ -2,12 +2,13 @@
   import { onMount } from 'svelte';
   import { AudioWaveform, CodeXml, Moon, Pause, Play, Sun } from '@lucide/svelte';
   import FileDropzone from '$lib/components/FileDropzone.svelte';
+  import LiveRack from '$lib/components/LiveRack.svelte';
   import Spectrogram from '$lib/components/Spectrogram.svelte';
   import Waveform from '$lib/components/Waveform.svelte';
   import { analyzeAudioBuffer, type AnalysisTask } from '$lib/audio/analysis';
   import { decodeAudioFile } from '$lib/audio/decode';
   import { PlaybackEngine } from '$lib/audio/playback';
-  import type { AnalysisProgress, DecodedAudio, PlaybackSnapshot, ResolvedTheme } from '$lib/audio/types';
+  import type { AnalysisProgress, AnalyzerBank, DecodedAudio, PlaybackSnapshot, ResolvedTheme } from '$lib/audio/types';
   import { formatBytes, formatFrequency, formatTime } from '$lib/format';
 
   const EMPTY_PLAYBACK: PlaybackSnapshot = {
@@ -25,6 +26,7 @@
   let theme = $state<ResolvedTheme>('dark');
   let analysisProgress = $state<AnalysisProgress | null>(null);
   let analysisTask = $state<AnalysisTask | null>(null);
+  let analyzers = $state<AnalyzerBank | null>(null);
   let decodeGeneration = 0;
 
   onMount(() => {
@@ -98,14 +100,17 @@
     analysisProgress = null;
     selectedFile = file;
     decoded = null;
+    analyzers = null;
     playback = { ...EMPTY_PLAYBACK };
     await engine?.destroy();
     engine = null;
+    let decodeComplete = false;
 
     try {
       const nextAudio = await decodeAudioFile(file);
       if (generation !== decodeGeneration) return;
 
+      decodeComplete = true;
       decoded = nextAudio;
       engine = new PlaybackEngine(nextAudio.buffer, () => {
         if (engine) playback = engine.snapshot;
@@ -126,9 +131,13 @@
       };
     } catch (cause) {
       if (generation !== decodeGeneration) return;
-      console.error('Audio decode failed', cause);
-      error = 'This file could not be decoded by the browser.';
-      selectedFile = null;
+      console.error(decodeComplete ? 'Spectrum analysis failed' : 'Audio decode failed', cause);
+      if (decodeComplete) {
+        error = 'Spectrum analysis failed. Playback and waveform remain available.';
+      } else {
+        error = 'This file could not be decoded by the browser.';
+        selectedFile = null;
+      }
     } finally {
       if (generation === decodeGeneration) busy = false;
     }
@@ -138,6 +147,7 @@
     if (!engine) return;
     try {
       playback = await engine.toggle();
+      analyzers = engine.analyzers;
     } catch (cause) {
       console.error('Playback failed', cause);
       error = 'Playback could not start. Check browser audio permissions.';
@@ -295,6 +305,12 @@
             <strong>{analysisProgress.progress}%</strong>
           </div>
         {/if}
+        <LiveRack
+          {analyzers}
+          isPlaying={playback.isPlaying}
+          sampleRate={decoded.buffer.sampleRate}
+          {theme}
+        />
       </div>
     {/if}
   </main>

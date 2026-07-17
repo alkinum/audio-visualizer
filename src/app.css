@@ -582,6 +582,78 @@ main.has-session {
   display: block;
 }
 
+.live-rack {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.85fr);
+  border-bottom: 1px solid var(--line);
+}
+
+.live-panel {
+  min-width: 0;
+  padding: 18px;
+}
+
+.phase-panel {
+  border-left: 1px solid var(--line);
+}
+
+.live-canvas {
+  width: 100%;
+  height: 248px;
+}
+
+.live-canvas canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.trace-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-faint);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.trace-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.trace-line {
+  width: 12px;
+  height: 2px;
+  display: inline-block;
+}
+
+.trace-main {
+  background: var(--chart-primary);
+}
+
+.trace-secondary {
+  background: var(--chart-secondary);
+}
+
+.phase-status {
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text-faint);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.phase-status.signal-active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .analysis-progress {
   display: flex;
   align-items: center;
@@ -705,6 +777,19 @@ main.has-session {
   }
 
   .viz-section {
+    padding: 14px;
+  }
+
+  .live-rack {
+    grid-template-columns: 1fr;
+  }
+
+  .phase-panel {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .live-panel {
     padding: 14px;
   }
 }

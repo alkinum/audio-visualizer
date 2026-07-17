@@ -35,7 +35,7 @@ Evidence: `src/lib/audio/dsp.test.ts` covers FFT location, bounded frames,
 in-phase Mid dominance, and polarity-inverted Side dominance. The Svelte page
 renders the three display modes from Worker output.
 
-## Milestone 3: Real-Time Analysis
+## Milestone 3: Real-Time Analysis - Complete
 
 Deliverables:
 
@@ -48,6 +48,10 @@ Acceptance gate:
 
 - analyzers update only while playing
 - no duplicate audible routing or gain change is introduced
+
+Evidence: `LiveRack.svelte` owns one animation loop for both canvases and stops
+redrawing when paused. Browser playback of a 440 Hz left and 880 Hz right
+fixture produced two response peaks, a non-empty phase image, and correlation.
 
 ## Milestone 4: Product UI
 

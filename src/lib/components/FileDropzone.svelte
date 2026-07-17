@@ -10,6 +10,7 @@
   let { onSelect, busy = false, compact = false }: Props = $props();
   let input: HTMLInputElement;
   let dragging = $state(false);
+  const primaryLabel = $derived(compact ? 'Replace file' : busy ? 'Decoding audio' : 'Open an audio file');
 
   function selectFiles(files: FileList | null): void {
     const file = files?.item(0);
@@ -19,11 +20,11 @@
   function handleDrop(event: DragEvent): void {
     event.preventDefault();
     dragging = false;
-    if (!busy) selectFiles(event.dataTransfer?.files ?? null);
+    if (!busy || compact) selectFiles(event.dataTransfer?.files ?? null);
   }
 
   function openPicker(): void {
-    if (!busy) input.click();
+    if (!busy || compact) input.click();
   }
 </script>
 
@@ -40,7 +41,7 @@
   class:dragging
   class="file-drop"
   type="button"
-  disabled={busy}
+  disabled={busy && !compact}
   onclick={openPicker}
   ondragenter={(event) => {
     event.preventDefault();
@@ -63,7 +64,7 @@
     {/if}
   </span>
   <span class="file-drop-copy">
-    <strong>{busy ? 'Decoding audio' : compact ? 'Replace file' : 'Open an audio file'}</strong>
+    <strong>{primaryLabel}</strong>
     {#if !compact}
       <small>{busy ? 'Reading waveform data locally' : 'Drop a file here or choose from this device'}</small>
     {/if}
