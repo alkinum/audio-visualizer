@@ -4,22 +4,22 @@ Last audited: 2026-07-18
 
 ## Current Baseline
 
-The repository is a React 18 and Vite single-page application. It can load an
-audio file, decode it in the browser, play or seek it, render a static waveform,
-render a mixed-channel spectrogram, switch light and dark themes, and deploy a
-static `dist` directory to Cloudflare Pages.
+The repository now runs on SvelteKit 2, Svelte 5, Vite 8, and the Cloudflare
+adapter. It can load and decode an audio file in the browser, play or seek it,
+render a responsive waveform, switch persisted light and dark themes, and build
+the adapter-generated Worker and assets for Cloudflare.
 
 ## Confirmed Gaps
 
-- SvelteKit migration has not started.
-- The spectrogram merges all channels and cannot display L/R or Mid/Side.
+- Offline spectral analysis has not been migrated yet.
+- The current SvelteKit workspace does not yet display a spectrogram.
 - Its renderer assumes a 44.1 kHz source and labels only up to 16 kHz.
 - No real-time frequency-response analyzer exists.
 - No phase scope, vectorscope, or correlation meter exists.
 - Static visualization requires OffscreenCanvas with no main-thread fallback.
 - Audio analysis returns nested JavaScript arrays with avoidable memory cost.
-- Theme choice follows the system only and is not persisted.
-- There is no test suite or repeatable browser verification workflow.
+- The theme choice is now persisted and follows the system until changed.
+- DSP tests and repeatable browser verification are still pending.
 
 ## Target State
 
@@ -44,8 +44,17 @@ browser, deploys through Cloudflare, retains every existing workflow, and adds:
 - Canvas rendering must reserve dimensions to prevent layout shift and scale to
   device pixel ratio without multiplying CSS dimensions.
 
+## Completed This Turn
+
+- Replaced React, Tailwind, and Vite plugin configuration with SvelteKit.
+- Added `@sveltejs/adapter-cloudflare`, JSONC Wrangler config, and generated
+  Worker binding types.
+- Restored file validation, drag/drop, browser decoding, play, pause, seek,
+  Space and arrow keyboard controls, and waveform pointer seeking.
+- Added semantic light and dark tokens with system fallback and persistence.
+- Added Cloudflare dry-run evidence without external upload or storage.
+
 ## Next Milestone
 
-Replace the React shell with SvelteKit, configure the Cloudflare adapter, and
-restore file loading, playback, seeking, and waveform rendering before adding
-new analyzer modes.
+Add the Worker-backed FFT pipeline with bounded log-frequency frames and
+combined, L/R, and Mid/Side modes.

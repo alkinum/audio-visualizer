@@ -10,6 +10,10 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.svelte-kit
+.wrangler
+build
+worker-configuration.d.ts
 *.local
 
 # Editor directories and files

@@ -1,6 +1,6 @@
 # Roadmap
 
-## Milestone 1: Platform Migration
+## Milestone 1: Platform Migration - Complete
 
 Deliverables:
 
@@ -13,7 +13,8 @@ Deliverables:
 Acceptance gate:
 
 - `npm run check`, `npm run lint`, and `npm run build` pass
-- the production build targets Cloudflare without Node-only runtime code
+- `wrangler deploy --dry-run` reads the generated Worker and assets
+- `wrangler types --check` confirms the generated binding types
 
 ## Milestone 2: Offline Spectral Analysis
 
