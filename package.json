@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "deploy": "npm run build && wrangler pages deploy",
+    "deploy": "npm run build && CLOUDFLARE_ACCOUNT_ID=b6754402d59fc29ee8b62119014fec89 wrangler pages deploy",
     "cf:types": "wrangler types"
   },
   "dependencies": {
