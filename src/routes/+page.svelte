@@ -254,7 +254,7 @@
           <span class="empty-icon" aria-hidden="true">
             <AudioWaveform size={30} strokeWidth={1.45} />
           </span>
-          <h1 id="open-file-title">Audio workspace</h1>
+          <h1 id="open-file-title">Audio Visualizer</h1>
           <p>Load a file to begin a local analysis session.</p>
         </div>
         <FileDropzone onSelect={handleFile} {busy} />
