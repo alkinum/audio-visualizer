@@ -425,6 +425,13 @@
     playback = engine?.setLoop(loopEnabled, loopStart, loopEnd) ?? playback;
   }
 
+  function clearLoopRange(): void {
+    loopEnabled = false;
+    loopStart = 0;
+    loopEnd = 0;
+    playback = engine?.setLoop(false, 0, 0) ?? playback;
+  }
+
   function reconcileLoopBounds(): void {
     const maximum = sharedDuration();
     if (maximum <= 0) return;
@@ -864,6 +871,7 @@
           onViewChange={changeTimeView}
           onLoopChange={changeLoopRange}
           onLoopToggle={changeLoopEnabled}
+          onLoopClear={clearLoopRange}
         />
         {#if decoded.analysis}
           <Spectrogram

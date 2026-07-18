@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { MousePointer2, Repeat2 } from '@lucide/svelte';
+  import { MousePointer2, Repeat2, X } from '@lucide/svelte';
   import { panAxisRange, zoomAxisRange } from '$lib/audio/chart-viewport';
   import { observeDevicePixelRatio, prepareCanvas } from '$lib/canvas-resolution';
   import type { PeakSeries, ResolvedTheme, WaveformData, WaveformMode } from '$lib/audio/types';
@@ -23,12 +23,14 @@
     onViewChange: (start: number, end: number) => void;
     onLoopChange: (start: number, end: number) => void;
     onLoopToggle: (enabled: boolean) => void;
+    onLoopClear: () => void;
   }
 
   type ToolMode = 'navigate' | 'loop';
   type PointerAction =
     | 'pending-navigation'
     | 'pan-view'
+    | 'scrub-playhead'
     | 'draw-loop'
     | 'pan-loop'
     | 'view-start'
@@ -64,6 +66,7 @@
     onViewChange,
     onLoopChange,
     onLoopToggle,
+    onLoopClear,
   }: Props = $props();
 
   const panelGap = 8;
@@ -81,12 +84,14 @@
   let initialEnd = 0;
   let moved = false;
   let loopDrawStarted = false;
+  let scrubTime = $state<number | null>(null);
 
   const hasComparison = $derived(Boolean(comparisonData));
   const stacked = $derived(hasComparison && width < 720);
   const canvasHeight = $derived(stacked ? 296 : 176);
   const panels = $derived.by(makePanels);
-  const playhead = $derived(duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0);
+  const displayedTime = $derived(scrubTime ?? currentTime);
+  const playhead = $derived(duration > 0 ? Math.min(100, Math.max(0, (displayedTime / duration) * 100)) : 0);
   const rangeLeft = $derived(duration > 0 ? Math.min(100, Math.max(0, (viewStart / duration) * 100)) : 0);
   const rangeWidth = $derived(
     duration > 0 ? Math.min(100 - rangeLeft, Math.max(0, ((viewEnd - viewStart) / duration) * 100)) : 100,
@@ -289,6 +294,7 @@
     initialEnd = pointerAction.startsWith('loop') || pointerAction === 'draw-loop' ? loopEnd : viewEnd;
     moved = false;
     loopDrawStarted = false;
+    if (pointerAction === 'scrub-playhead') scrubTime = currentTime;
     container.setPointerCapture(event.pointerId);
   }
 
@@ -306,6 +312,11 @@
     if (pointerAction === 'pending-navigation' && moved) pointerAction = 'pan-view';
     if (!moved) return;
     event.preventDefault();
+
+    if (pointerAction === 'scrub-playhead') {
+      scrubTime = Math.max(0, Math.min(duration, timeAt(event.clientX, event.clientY)));
+      return;
+    }
 
     const panel = panelAt(pointerStartX, pointerStartY);
     if (pointerAction === 'pan-view') {
@@ -356,9 +367,14 @@
 
   function endPointer(event: PointerEvent): void {
     const completedAction = pointerAction;
+    const completedScrubTime = completedAction === 'scrub-playhead'
+      ? Math.max(0, Math.min(duration, timeAt(event.clientX, event.clientY)))
+      : null;
     pointerAction = null;
+    scrubTime = null;
     if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId);
     if (event.type === 'pointercancel') return;
+    if (completedScrubTime !== null) onSeek(completedScrubTime);
     if (completedAction === 'pending-navigation' && !moved) onSeek(timeAt(event.clientX, event.clientY));
     if (completedAction === 'draw-loop' && !moved) {
       const span = Math.min(loopMaximum, Math.max(1, loopMaximum * 0.05));
@@ -370,6 +386,7 @@
 
   function cancelPointer(event: PointerEvent): void {
     pointerAction = null;
+    scrubTime = null;
     moved = false;
     if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId);
   }
@@ -425,6 +442,11 @@
     }
   }
 
+  function clearLoop(): void {
+    tool = 'navigate';
+    onLoopClear();
+  }
+
   function handleKeydown(event: KeyboardEvent): void {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault();
@@ -433,6 +455,9 @@
     } else if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault();
       onSeek(event.key === 'Home' ? 0 : duration);
+    } else if (event.key === 'Escape' && loopEnabled) {
+      event.preventDefault();
+      clearLoop();
     }
   }
 </script>
@@ -450,12 +475,15 @@
         <button class:active={mode === 'combined'} type="button" aria-pressed={mode === 'combined'} onclick={() => (mode = 'combined')}>Mix</button>
         <button class:active={mode === 'split'} type="button" aria-pressed={mode === 'split'} onclick={() => (mode = 'split')}>L / R</button>
       </div>
-      <div class="segmented waveform-tools" aria-label="Waveform interaction tool">
+      <div class="segmented waveform-tools" aria-label="Waveform tools">
         <button class:active={tool === 'navigate'} type="button" aria-pressed={tool === 'navigate'} aria-label="Navigate waveform" title="Navigate waveform" onclick={() => chooseTool('navigate')}>
           <MousePointer2 size={14} strokeWidth={1.8} />
         </button>
         <button class:active={tool === 'loop'} type="button" aria-pressed={tool === 'loop'} aria-label="Draw loop range" title="Draw loop range" onclick={() => chooseTool('loop')}>
           <Repeat2 size={14} strokeWidth={1.8} />
+        </button>
+        <button type="button" aria-label="Clear loop range" title="Clear loop range" disabled={!loopEnabled} onclick={clearLoop}>
+          <X size={14} strokeWidth={1.8} />
         </button>
       </div>
     </div>
@@ -472,8 +500,8 @@
     aria-label="Audio position"
     aria-valuemin="0"
     aria-valuemax={duration}
-    aria-valuenow={currentTime}
-    aria-valuetext={formatTime(currentTime, true)}
+    aria-valuenow={displayedTime}
+    aria-valuetext={formatTime(displayedTime, true)}
     tabindex="0"
     onpointerdown={(event) => beginPointer(event)}
     onpointermove={handlePointerMove}
@@ -509,7 +537,13 @@
           </div>
         {/if}
         <div class="playhead" style:left={`${playhead}%`} aria-hidden="true">
-          {#if index === 0}<span>{formatTime(currentTime, true)}</span>{/if}
+          <div
+            role="presentation"
+            class="waveform-playhead-handle"
+            title="Drag playback position"
+            onpointerdown={(event) => { event.stopPropagation(); beginPointer(event, 'scrub-playhead'); }}
+          ></div>
+          {#if index === 0}<span>{formatTime(displayedTime, true)}</span>{/if}
         </div>
       </div>
     {/each}
