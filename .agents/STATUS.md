@@ -1,6 +1,6 @@
 # Project Status
 
-Last audited: 2026-07-18
+Last audited: 2026-07-19
 
 ## Current Baseline
 
@@ -37,7 +37,7 @@ workflow, and adds:
 
 - `npm run check`: passed
 - `npm run lint`: passed
-- `npm run test`: passed, 24 tests
+- `npm run test`: passed, 32 tests
 - `npm run build`: passed with Cloudflare adapter output
 - `npx wrangler types --check`: passed
 - `npm audit --omit=dev`: 0 production vulnerabilities

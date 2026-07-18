@@ -23,16 +23,20 @@ npm run build
 - adaptive plans respect constrained and maximum output-memory budgets
 - Error and non-Error failures retain structured diagnostic context
 
-Automated evidence: `npm run test` passes 24 DSP, planning, diagnostics,
+Automated evidence: `npm run test` passes 32 DSP, planning, diagnostics,
 palette, metering, chart-viewport, and Canvas-DPR tests.
 
 ## Browser Flows
 
 - load one file or synchronized A/B files through the picker and drag/drop
+- route a single dropped file by the highlighted A/B target and use only the
+  first two files from larger drops
 - reject a non-audio file with an inline message
 - play, pause, seek, restart, and reach natural playback end
-- use Space and Left/Right arrow keyboard controls outside editable fields
+- use Space and Left/Right arrow keyboard controls regardless of control focus
 - switch combined, L/R, and M/S spectrogram views
+- zoom the spectrogram and pan freely across time and frequency with pointer
+  and touch input
 - observe live response, phase image, and correlation during playback
 - replacing a file cancels the prior Worker and prevents stale results from
   replacing the new session

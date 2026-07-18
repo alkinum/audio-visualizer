@@ -28,6 +28,7 @@
   import { decodeAudioFile } from '$lib/audio/decode';
   import { clampAxisRange } from '$lib/audio/chart-viewport';
   import { PlaybackEngine } from '$lib/audio/playback';
+  import { planDroppedItems } from '$lib/drop-routing';
   import type {
     AnalysisProgress,
     AnalyzerBank,
@@ -82,6 +83,8 @@
   let decodeGeneration = 0;
   let comparisonGeneration = 0;
   let pageDragging = $state(false);
+  let pageDropSlot = $state<ComparisonSlot | null>(null);
+  let pageDropFileCount = $state(0);
   let loopEnabled = $state(false);
   let loopStart = $state(0);
   let loopEnd = $state(0);
@@ -118,17 +121,25 @@
 
     const handleKeyboard = (event: KeyboardEvent) => {
       if (!engine) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.matches('input, textarea, select, button, [contenteditable="true"], [role="slider"]')) return;
 
       if (event.code === 'Space') {
         event.preventDefault();
+        if (event.repeat) return;
         void togglePlayback();
-      } else if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
+        return;
+      }
+
+      if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
+        if (event.defaultPrevented) return;
         event.preventDefault();
         const direction = event.code === 'ArrowLeft' ? -1 : 1;
         void seek(playback.currentTime + direction * 5);
-      } else if (event.code === 'KeyA') {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('input, textarea, select, button, [contenteditable="true"], [role="slider"]')) return;
+      if (event.code === 'KeyA') {
         switchComparison('a');
       } else if (event.code === 'KeyB' && comparisonDecoded) {
         switchComparison('b');
@@ -140,23 +151,24 @@
       if (!hasDraggedFiles(event)) return;
       event.preventDefault();
       pageDragging = true;
+      updatePageDropState(event);
     };
     const handleWindowDragOver = (event: DragEvent) => {
       if (!hasDraggedFiles(event)) return;
       event.preventDefault();
       if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
       pageDragging = true;
+      updatePageDropState(event);
     };
     const handleWindowDragLeave = (event: DragEvent) => {
-      if (event.relatedTarget === null) pageDragging = false;
+      if (event.relatedTarget === null) resetPageDropState();
     };
     const handleWindowDrop = (event: DragEvent) => {
       if (!hasDraggedFiles(event)) return;
       event.preventDefault();
-      pageDragging = false;
       const files = Array.from(event.dataTransfer?.files ?? []).slice(0, 2);
-      if (!decoded) handleInitialFiles(files);
-      else if (files[0]) routeDroppedFile(files[0], activeSlot);
+      handleDroppedFiles(files, pageDropSlot ?? activeSlot);
+      resetPageDropState();
     };
     window.addEventListener('dragenter', handleWindowDragEnter);
     window.addEventListener('dragover', handleWindowDragOver);
@@ -511,7 +523,6 @@
       { start: minimum, end: maximum },
       0,
       nyquist,
-      Math.min(nyquist, Math.max(500, nyquist / 32)),
     );
     frequencyMin = range.start;
     frequencyMax = range.end;
@@ -525,20 +536,59 @@
     return Array.from(event.dataTransfer?.types ?? []).includes('Files');
   }
 
+  function updatePageDropState(event: DragEvent, slot?: ComparisonSlot): void {
+    pageDropFileCount = Math.max(
+      Array.from(event.dataTransfer?.items ?? []).filter((item) => item.kind === 'file').length,
+      event.dataTransfer?.files.length ?? 0,
+    );
+    pageDropSlot = decoded ? (slot ?? dropSlotAt(event)) : 'a';
+  }
+
+  function dropSlotAt(event: DragEvent): ComparisonSlot {
+    const directTarget = event.composedPath().find(
+      (target): target is HTMLElement =>
+        target instanceof HTMLElement && (target.dataset.dropSlot === 'a' || target.dataset.dropSlot === 'b'),
+    );
+    if (directTarget?.dataset.dropSlot === 'a' || directTarget?.dataset.dropSlot === 'b') {
+      return directTarget.dataset.dropSlot;
+    }
+
+    const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-drop-slot]'));
+    const nearest = targets.reduce<{ slot: ComparisonSlot; distance: number } | null>((closest, target) => {
+      const slot = target.dataset.dropSlot;
+      if (slot !== 'a' && slot !== 'b') return closest;
+      const rect = target.getBoundingClientRect();
+      const dx = Math.max(rect.left - event.clientX, 0, event.clientX - rect.right);
+      const dy = Math.max(rect.top - event.clientY, 0, event.clientY - rect.bottom);
+      const distance = dx * dx + dy * dy;
+      return !closest || distance < closest.distance ? { slot, distance } : closest;
+    }, null);
+
+    return nearest?.slot ?? (event.clientX < window.innerWidth / 2 ? 'a' : 'b');
+  }
+
+  function resetPageDropState(): void {
+    pageDragging = false;
+    pageDropSlot = null;
+    pageDropFileCount = 0;
+  }
+
   function handlePageDrop(event: DragEvent, slot: ComparisonSlot): void {
     event.preventDefault();
     event.stopPropagation();
-    pageDragging = false;
     const files = Array.from(event.dataTransfer?.files ?? []).slice(0, 2);
-    if (!decoded && slot === 'a') handleInitialFiles(files);
-    else if (files[0]) routeDroppedFile(files[0], slot);
+    handleDroppedFiles(files, slot);
+    resetPageDropState();
   }
 
-  function routeDroppedFile(file: File, slot: ComparisonSlot): void {
-    if (slot === 'b' && decoded) {
-      void handleComparisonFile(file);
-    } else {
-      void handleFile(file);
+  function handleDroppedFiles(files: File[], slot: ComparisonSlot): void {
+    const plan = planDroppedItems(files, slot, Boolean(decoded));
+    if (plan.kind === 'pair') {
+      handleInitialFiles([plan.primary, plan.comparison]);
+    } else if (plan.kind === 'comparison') {
+      void handleComparisonFile(plan.item);
+    } else if (plan.kind === 'primary') {
+      void handleFile(plan.item);
     }
   }
 
@@ -939,31 +989,42 @@
   <div
     class="page-drop-overlay"
     role="presentation"
-    ondragover={(event) => event.preventDefault()}
-    ondrop={(event) => handlePageDrop(event, decoded ? activeSlot : 'a')}
+    ondragover={(event) => {
+      event.preventDefault();
+      updatePageDropState(event);
+    }}
+    ondrop={(event) => handlePageDrop(event, pageDropSlot ?? activeSlot)}
   >
-    <div class:single={!decoded} class="page-drop-targets">
+    <div class:single={!decoded && pageDropFileCount < 2} class="page-drop-targets">
       <div
-        class:active={activeSlot === 'a'}
+        class:active={pageDropFileCount >= 2 || pageDropSlot === 'a'}
         class="page-drop-target"
+        data-drop-slot="a"
         role="presentation"
-        ondragover={(event) => event.preventDefault()}
+        ondragover={(event) => {
+          event.preventDefault();
+          updatePageDropState(event, 'a');
+        }}
         ondrop={(event) => handlePageDrop(event, 'a')}
       >
         <span class="drop-source-badge">A</span>
-        <strong>{decoded ? 'Replace analysis A' : 'Analyze this file'}</strong>
+        <strong>{decoded ? 'Replace analysis A' : pageDropFileCount >= 2 ? 'Analyze as A' : 'Analyze this file'}</strong>
         <span>{decoded ? selectedFile?.name : 'Local waveform and spectrum analysis'}</span>
       </div>
-      {#if decoded}
+      {#if decoded || pageDropFileCount >= 2}
         <div
-          class:active={activeSlot === 'b'}
+          class:active={pageDropFileCount >= 2 || pageDropSlot === 'b'}
           class="page-drop-target"
+          data-drop-slot="b"
           role="presentation"
-          ondragover={(event) => event.preventDefault()}
+          ondragover={(event) => {
+            event.preventDefault();
+            updatePageDropState(event, 'b');
+          }}
           ondrop={(event) => handlePageDrop(event, 'b')}
         >
           <span class="drop-source-badge">B</span>
-          <strong>{comparisonDecoded ? 'Replace comparison B' : 'Add comparison B'}</strong>
+          <strong>{comparisonDecoded ? 'Replace comparison B' : pageDropFileCount >= 2 ? 'Compare as B' : 'Add comparison B'}</strong>
           <span>{comparisonFile?.name ?? 'Synchronized listening reference'}</span>
         </div>
       {/if}

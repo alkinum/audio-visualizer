@@ -962,6 +962,10 @@ button.comparison-file:hover {
   cursor: grab;
 }
 
+.spectrogram-canvas.free-pan {
+  touch-action: none;
+}
+
 .viz-section.spectrogram-section {
   padding-bottom: 18px;
 }

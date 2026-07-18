@@ -9,7 +9,11 @@
     layoutSpectrumFrequencyTicks,
     SPECTRUM_FREQUENCY_LABEL_HEIGHT,
   } from '$lib/audio/spectrum-frequency-axis';
-  import { frequencyToSpectrumRatio, spectrumRatioToFrequency } from '$lib/audio/spectrum-frequency-scale';
+  import {
+    frequencyToSpectrumRatio,
+    panSpectrumFrequencyRange,
+    spectrumRatioToFrequency,
+  } from '$lib/audio/spectrum-frequency-scale';
   import type {
     AnalysisChannel,
     AnalysisProgress,
@@ -57,10 +61,11 @@
     analysis: OfflineAnalysis | null;
   }
 
-  type PointerAction = 'pending' | 'pan-time' | 'pan-frequency';
+  type PointerAction = 'pending' | 'pan';
 
   const panelGap = 8;
   const rulerHeight = 25;
+  const minimumFrequencyRatioSpan = 1 / 32;
   const allChannels: AnalysisChannel[] = ['combined', 'left', 'right', 'mid', 'side'];
   const heatPalette = makeAuditionSpectrumPalette();
   const rasterCache = new SvelteMap<string, CachedRaster>();
@@ -100,6 +105,9 @@
   let initialFrequencyMin = 0;
   let initialFrequencyMax = 0;
   let moved = false;
+  let pendingPointerX = 0;
+  let pendingPointerY = 0;
+  let panAnimationFrame = 0;
   let prewarmTimer: number | undefined;
   let cacheSourceA: Float32Array | null = null;
   let cacheSourceB: Float32Array | null = null;
@@ -133,6 +141,7 @@
       stopDprObserver();
       container.removeEventListener('wheel', handleWheel);
       if (prewarmTimer !== undefined) window.clearTimeout(prewarmTimer);
+      if (panAnimationFrame) cancelAnimationFrame(panAnimationFrame);
       rasterCache.clear();
     };
   });
@@ -520,30 +529,36 @@
     onTimeViewChange(range.start, range.end);
   }
 
-  function zoomFrequency(factor: number, anchor = (frequencyMin + frequencyMax) / 2): void {
+  function zoomFrequency(factor: number, anchor?: number): void {
     const nyquist = analysis.sampleRate / 2;
-    const range = zoomAxisRange(
-      { start: frequencyMin, end: frequencyMax },
+    const minimumRatio = frequencyToSpectrumRatio(frequencyMin, nyquist);
+    const maximumRatio = frequencyToSpectrumRatio(frequencyMax, nyquist);
+    const ratioRange = zoomAxisRange(
+      { start: minimumRatio, end: maximumRatio },
       factor,
-      anchor,
+      anchor === undefined
+        ? (minimumRatio + maximumRatio) / 2
+        : frequencyToSpectrumRatio(anchor, nyquist),
       0,
-      nyquist,
-      Math.min(nyquist, Math.max(500, nyquist / 32)),
+      1,
+      minimumFrequencyRatioSpan,
     );
-    onFrequencyViewChange(range.start, range.end);
+    onFrequencyViewChange(
+      spectrumRatioToFrequency(ratioRange.start, nyquist),
+      spectrumRatioToFrequency(ratioRange.end, nyquist),
+    );
   }
 
   function panFrequency(direction: -1 | 1): void {
     const nyquist = analysis.sampleRate / 2;
-    const span = frequencyMax - frequencyMin;
-    const range = panAxisRange(
-      { start: frequencyMin, end: frequencyMax },
-      direction * span * 0.25,
-      0,
+    const ratioSpan = frequencyToSpectrumRatio(frequencyMax, nyquist) -
+      frequencyToSpectrumRatio(frequencyMin, nyquist);
+    const range = panSpectrumFrequencyRange(
+      { minimum: frequencyMin, maximum: frequencyMax },
+      direction * ratioSpan * 0.25,
       nyquist,
-      Math.min(nyquist, Math.max(500, nyquist / 32)),
     );
-    onFrequencyViewChange(range.start, range.end);
+    onFrequencyViewChange(range.minimum, range.maximum);
   }
 
   function resetView(): void {
@@ -624,46 +639,73 @@
     const deltaX = event.clientX - pointerStartX;
     const deltaY = event.clientY - pointerStartY;
     if (!moved && Math.hypot(deltaX, deltaY) >= 5) {
-      if (event.pointerType === 'touch' && Math.abs(deltaY) > Math.abs(deltaX)) {
+      if (event.pointerType === 'touch' && !frequencyZoomed && Math.abs(deltaY) > Math.abs(deltaX)) {
         cancelPointer(event);
         return;
       }
       moved = true;
-      pointerAction = event.shiftKey ? 'pan-frequency' : 'pan-time';
+      pointerAction = 'pan';
     }
     if (!moved) return;
     event.preventDefault();
+    schedulePointerPan(event.clientX, event.clientY);
+  }
 
+  function schedulePointerPan(clientX: number, clientY: number): void {
+    pendingPointerX = clientX;
+    pendingPointerY = clientY;
+    if (panAnimationFrame) return;
+    panAnimationFrame = requestAnimationFrame(() => {
+      panAnimationFrame = 0;
+      applyPointerPan(pendingPointerX, pendingPointerY);
+    });
+  }
+
+  function applyPointerPan(clientX: number, clientY: number): void {
+    const deltaX = clientX - pointerStartX;
+    const deltaY = clientY - pointerStartY;
     const panel = sourcePanelAt(pointerStartX, pointerStartY);
-    if (pointerAction === 'pan-time') {
-      const span = initialViewEnd - initialViewStart;
+    const timeSpan = initialViewEnd - initialViewStart;
+    if (timeSpan < duration - 0.001) {
       const range = panAxisRange(
         { start: initialViewStart, end: initialViewEnd },
-        -(deltaX / panel.width) * span,
+        -(deltaX / panel.width) * timeSpan,
         0,
         duration,
         minimumTimeSpan(),
       );
-      onTimeViewChange(range.start, range.end);
-    } else if (pointerAction === 'pan-frequency') {
-      const span = initialFrequencyMax - initialFrequencyMin;
-      const range = panAxisRange(
-        { start: initialFrequencyMin, end: initialFrequencyMax },
-        (deltaY / Math.max(1, panel.height - rulerHeight)) * span,
-        0,
-        analysis.sampleRate / 2,
-        Math.min(analysis.sampleRate / 2, Math.max(500, analysis.sampleRate / 64)),
+      if (range.start !== viewStart || range.end !== viewEnd) {
+        onTimeViewChange(range.start, range.end);
+      }
+    }
+
+    const nyquist = analysis.sampleRate / 2;
+    if (initialFrequencyMin > 0.01 || initialFrequencyMax < nyquist - 0.01) {
+      const channelHeight = (panel.height - rulerHeight) / channels.length;
+      const frequencyRange = panSpectrumFrequencyRange(
+        { minimum: initialFrequencyMin, maximum: initialFrequencyMax },
+        deltaY / Math.max(1, channelHeight),
+        nyquist,
       );
-      onFrequencyViewChange(range.start, range.end);
+      if (frequencyRange.minimum !== frequencyMin || frequencyRange.maximum !== frequencyMax) {
+        onFrequencyViewChange(frequencyRange.minimum, frequencyRange.maximum);
+      }
     }
   }
 
   function handlePointerUp(event: PointerEvent): void {
     if (pointerAction === 'pending' && !moved) onSeek(timeAt(event.clientX, event.clientY));
+    if (pointerAction === 'pan') {
+      if (panAnimationFrame) cancelAnimationFrame(panAnimationFrame);
+      panAnimationFrame = 0;
+      applyPointerPan(event.clientX, event.clientY);
+    }
     cancelPointer(event);
   }
 
   function cancelPointer(event: PointerEvent): void {
+    if (panAnimationFrame) cancelAnimationFrame(panAnimationFrame);
+    panAnimationFrame = 0;
     pointerAction = null;
     moved = false;
     if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId);
@@ -747,7 +789,8 @@
   </div>
   <div
     bind:this={container}
-    class:dragging={pointerAction === 'pan-time' || pointerAction === 'pan-frequency'}
+    class:dragging={pointerAction === 'pan'}
+    class:free-pan={frequencyZoomed}
     class="spectrogram-canvas canvas-surface"
     style:height={`${canvasHeight + 2}px`}
     role="slider"
