@@ -20,8 +20,8 @@ npm run build
 - adaptive plans respect constrained and maximum output-memory budgets
 - Error and non-Error failures retain structured diagnostic context
 
-Automated evidence: `npm run test` passes 14 DSP, planning, diagnostics, and
-metering tests.
+Automated evidence: `npm run test` passes 16 DSP, planning, diagnostics,
+palette, and metering tests.
 
 ## Browser Flows
 
@@ -51,6 +51,12 @@ Verified on 2026-07-18 with generated 48 kHz stereo WAV fixtures:
   capability hints, elapsed time, and user agent; copy changed to `Copied`
 - normal short-WAV analysis and 8192 FFT playback completed with zero browser
   console errors or warnings
+- cached desktop spectrum switches completed in roughly 8-17 ms after prewarm;
+  an isolated garbage-collection sample reached 50 ms
+- desktop and 390 px mobile spectrum sections reported a 1 px bottom gap,
+  exactly matching the module divider, with no horizontal overflow
+- full-page and mobile screenshots confirmed right-side 20 Hz-to-Nyquist
+  labels, unobscured L/R/M/S tags, and the Audition-style intensity palette
 
 ## Visual Matrix
 

@@ -65,6 +65,11 @@ Svelte components own presentation and pointer interaction. Canvas components
 observe their container, apply device-pixel-ratio scaling, and draw from typed
 data without pushing per-frame values through the Svelte render tree.
 
+`Spectrogram.svelte` converts each channel to an Audition-style pixel raster
+once, caches it by source-array identity, and prewarms uncached channels in
+short idle tasks. Mode changes only composite cached canvases plus labels and
+grid lines; they do not rescan spectral values.
+
 ## Offline Spectral Model
 
 For every selected time frame:

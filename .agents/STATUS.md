@@ -37,7 +37,7 @@ workflow, and adds:
 
 - `npm run check`: passed
 - `npm run lint`: passed
-- `npm run test`: passed, 14 tests
+- `npm run test`: passed, 16 tests
 - `npm run build`: passed with Cloudflare adapter output
 - `npx wrangler deploy --dry-run`: passed
 - `npx wrangler types --check`: passed
@@ -77,6 +77,12 @@ workflow, and adds:
   and 2400-4800 frame ceilings within explicit output-memory budgets.
 - Raised waveform peaks and live analyzer FFT size to 8192, and replaced
   millions of per-cell Canvas calls with a single spectrum raster draw.
+- Cached and idle-prewarmed all five spectrum channel rasters so Mix, L/R, and
+  M/S switches render in roughly 8-17 ms in the desktop browser check.
+- Replaced the green HSL heat map with an Audition-style dB palette progressing
+  from near-black and deep blue through violet/red to orange/yellow/near-white.
+- Made the spectrum height stable, extended the frequency plot to the module
+  edge, moved the frequency ruler to the right, and added colored channel tags.
 - Added a spectrogram-sized waiting state and copyable failure UI while keeping
   waveform, playback, and file replacement usable.
 - Added `Mix`, `L / R`, and `M / S` spectrogram views with shared seek behavior.

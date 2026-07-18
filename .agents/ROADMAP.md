@@ -108,6 +108,6 @@ Acceptance gate:
   elapsed time, and a working copy action
 - desktop and 390 px mobile layouts have no horizontal overflow
 
-Evidence: 14 unit tests pass, a maximum-plan 30-second DSP benchmark completes
+Evidence: 16 unit tests pass, a maximum-plan 30-second DSP benchmark completes
 in about 1.26 seconds on the development machine, and Playwright verifies the
 normal, pending, failure, copy, playback, and mobile flows.

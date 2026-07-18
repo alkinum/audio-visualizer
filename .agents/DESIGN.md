@@ -21,6 +21,10 @@ Taste parameters:
 - One-pixel dividers instead of stacked cards
 - Eight-pixel panel radius and six-pixel control radius
 - No gradients, glow effects, decorative glass, or oversized headings
+- Spectrum intensity uses a data-encoding palette modeled on Audition: low dB
+  near-black/blue, then violet/red, orange/yellow, and near-white at peaks
+- L/R and M/S use distinct colored mode marks and bordered in-chart channel
+  tags; the same channel colors remain stable in both themes
 
 ## Information Architecture
 
@@ -40,6 +44,8 @@ Tablet and mobile:
 - Transport metadata moves below the scrubber.
 - The live rack becomes one column.
 - Spectrogram L/R and M/S panes remain stacked, never squeezed side by side.
+- The spectral plot uses a stable 430 px height across all channel modes and
+  reaches the module divider without an artificial low-frequency footer.
 - Every canvas has a stable minimum height and a bounded aspect ratio.
 
 ## Theme Tokens
