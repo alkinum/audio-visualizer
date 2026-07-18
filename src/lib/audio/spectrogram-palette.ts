@@ -18,7 +18,7 @@ const AUDITION_STYLE_STOPS: readonly SpectrumColorStop[] = [
   { position: 1, color: [255, 250, 221] },
 ];
 
-const DB_CONTRAST_GAMMA = 1.08;
+const DB_SENSITIVITY_GAMMA = 0.82;
 
 export function makeAuditionSpectrumPalette(size = 256): Uint8ClampedArray {
   if (!Number.isInteger(size) || size < 2) throw new RangeError('Spectrum palette size must be at least two');
@@ -44,7 +44,7 @@ export function dbToAuditionPaletteIndex(db: number, minDb: number, maxDb: numbe
   if (!Number.isInteger(size) || size < 2) throw new RangeError('Spectrum palette size must be at least two');
 
   const normalized = Math.max(0, Math.min(1, (db - minDb) / (maxDb - minDb)));
-  const contrasted = normalized ** DB_CONTRAST_GAMMA;
+  const contrasted = normalized ** DB_SENSITIVITY_GAMMA;
   return Math.round(contrasted * (size - 1));
 }
 

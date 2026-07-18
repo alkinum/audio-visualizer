@@ -1,9 +1,10 @@
 import type { AnalysisChannel, OfflineAnalysis } from './types';
+import { spectrumRatioToFrequency } from './spectrum-frequency-scale';
 
 export const FFT_SIZE = 4096;
 export const SPECTRUM_BINS = 512;
 export const MAX_SPECTRUM_FRAMES = 3600;
-export const MIN_SPECTRUM_DB = -100;
+export const MIN_SPECTRUM_DB = -120;
 export const MAX_SPECTRUM_DB = 0;
 
 export interface AnalysisOptions {
@@ -109,8 +110,8 @@ export function makeFrequencyBands(sampleRate: number, fftSize: number, binCount
   const bands: LogBand[] = [];
 
   for (let index = 0; index < binCount; index += 1) {
-    const lower = (nyquist * index) / binCount;
-    const upper = (nyquist * (index + 1)) / binCount;
+    const lower = spectrumRatioToFrequency(index / binCount, nyquist);
+    const upper = spectrumRatioToFrequency((index + 1) / binCount, nyquist);
     const start = Math.min(maxIndex, Math.max(0, Math.floor((lower * fftSize) / sampleRate)));
     const rawEnd = index === binCount - 1 ? maxIndex + 1 : Math.ceil((upper * fftSize) / sampleRate);
     const end = Math.min(maxIndex + 1, Math.max(start + 1, rawEnd));

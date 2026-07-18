@@ -48,7 +48,7 @@ describe('audio DSP', () => {
     expect(plan.hopSize).toBeGreaterThanOrEqual(1);
   });
 
-  it('keeps every linear-frequency band non-empty from DC through Nyquist', () => {
+  it('keeps every perceptual-frequency band non-empty from DC through Nyquist', () => {
     const fftSize = 4096;
     const bands = makeFrequencyBands(48_000, fftSize, 512);
     expect(bands).toHaveLength(512);
@@ -69,8 +69,8 @@ describe('audio DSP', () => {
       binCount: 64,
     });
 
-    expect(analysis.channels.combined[0]).toBeGreaterThan(analysis.channels.combined[1]);
-    expect(analysis.channels.combined[0]).toBeGreaterThan(-100);
+    expect(analysis.channels.combined[0]).toBeGreaterThan(analysis.channels.combined.at(-1) ?? 0);
+    expect(analysis.channels.combined[0]).toBeGreaterThan(-120);
   });
 
   it('keeps an in-phase stereo signal in Mid and suppresses Side', () => {

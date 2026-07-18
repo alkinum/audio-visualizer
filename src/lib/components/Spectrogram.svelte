@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { SvelteMap } from 'svelte/reactivity';
   import { dbToAuditionPaletteIndex, makeAuditionSpectrumPalette } from '$lib/audio/spectrogram-palette';
+  import { frequencyToSpectrumRatio } from '$lib/audio/spectrum-frequency-scale';
   import type { AnalysisChannel, OfflineAnalysis, ResolvedTheme, SpectrogramMode } from '$lib/audio/types';
   import { formatTime } from '$lib/format';
 
@@ -111,7 +112,9 @@
 
   function drawFrequencyAxis(context: CanvasRenderingContext2D, top: number, panelHeight: number): void {
     const nyquist = analysis.sampleRate / 2;
-    const frequencies = makeFrequencyTicks(nyquist);
+    const frequencies = Array.from(new Set([0, 100, 1000, 10_000, nyquist])).filter(
+      (frequency) => frequency <= nyquist,
+    );
     context.save();
     context.lineWidth = 1;
     context.font = '9px SFMono-Regular, Consolas, monospace';
@@ -215,19 +218,7 @@
   }
 
   function frequencyToRatio(frequency: number): number {
-    return Math.max(0, Math.min(1, frequency / Math.max(1, analysis.sampleRate / 2)));
-  }
-
-  function makeFrequencyTicks(nyquist: number): number[] {
-    const roughStep = nyquist / 5;
-    const magnitude = 10 ** Math.floor(Math.log10(Math.max(1, roughStep)));
-    const normalized = roughStep / magnitude;
-    const multiplier = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
-    const step = multiplier * magnitude;
-    const ticks = [0];
-    for (let frequency = step; frequency < nyquist; frequency += step) ticks.push(frequency);
-    ticks.push(nyquist);
-    return ticks;
+    return frequencyToSpectrumRatio(frequency, analysis.sampleRate / 2);
   }
 
   function channelLabel(channel: AnalysisChannel): string {
