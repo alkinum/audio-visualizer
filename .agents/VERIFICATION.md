@@ -86,3 +86,7 @@ pixels from waveform, spectrum, response, and phase canvases were non-empty.
 - Wrangler configuration validates against its installed schema
 - no secret, storage, or upload binding is present
 - audio remains local to the browser
+- production Pages deployment is associated with the committed `main` source
+- `https://audio-visualizer.pwp.sh` returns 200 and exposes the current assets
+- production Playwright upload completes offline analysis with zero console
+  errors or warnings

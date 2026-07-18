@@ -118,5 +118,8 @@ route to the output gain.
 ## Deployment
 
 SvelteKit uses `@sveltejs/adapter-cloudflare`. The generated Worker and static
-assets are deployed by Wrangler. Audio files never leave the browser and no
-storage binding or server upload endpoint is required.
+assets are deployed by Wrangler to the existing `audio-visualizer` Cloudflare
+Pages project. `wrangler.jsonc` is the production source of truth for the
+account, Pages output directory, compatibility date, and Node compatibility
+flag. Audio files never leave the browser and no storage binding or server
+upload endpoint is required.

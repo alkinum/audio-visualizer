@@ -45,7 +45,6 @@ npm run lint
 npm run test
 npm run build
 npx wrangler types --check
-npx wrangler deploy --dry-run
 ```
 
 `npm run test` covers FFT numerical parity and peak location, adaptive and
@@ -54,16 +53,19 @@ separation, RMS dB combination, and phase correlation math.
 
 ## Cloudflare Deployment
 
-The repository uses a Worker deployment rather than the legacy Pages directory
-upload. Authenticate Wrangler once with `npx wrangler login`, then run:
+The production site is the existing Cloudflare Pages project
+`audio-visualizer` in the `Alkinum` account. Authenticate Wrangler once with
+`npx wrangler login`, then run:
 
 ```bash
 npm run deploy
 ```
 
-The generated Worker entry is `.svelte-kit/cloudflare/_worker.js` and assets
-are served from `.svelte-kit/cloudflare`. Use `npx wrangler deploy --dry-run`
-to validate the bundle without publishing it.
+The generated Pages Worker entry is `.svelte-kit/cloudflare/_worker.js`, and
+its assets are uploaded from `.svelte-kit/cloudflare`. `wrangler.jsonc` pins
+the production account, output directory, compatibility date, and
+`nodejs_compat` flag. The production URL is
+[`audio-visualizer.pwp.sh`](https://audio-visualizer.pwp.sh).
 
 ## Project Documents
 

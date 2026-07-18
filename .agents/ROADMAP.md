@@ -13,8 +13,8 @@ Deliverables:
 Acceptance gate:
 
 - `npm run check`, `npm run lint`, and `npm run build` pass
-- `wrangler deploy --dry-run` reads the generated Worker and assets
 - `wrangler types --check` confirms the generated binding types
+- the generated Pages directory contains `_worker.js` and static assets
 
 ## Milestone 2: Offline Spectral Analysis - Complete
 
@@ -85,10 +85,10 @@ Acceptance gate:
 
 - all requirements have direct file, test, build, or browser evidence
 
-Evidence: README, verification matrix, Cloudflare dry-run, generated type check,
-the passing DSP and metering suite, and the rolling commit history are in
-place. A production publish was intentionally not run because no deployment
-authorization or target account was provided.
+Evidence: README, verification matrix, generated type check, the passing DSP
+and metering suite, rolling commit history, and the production Pages deployment
+are in place. The custom domain serves the committed application and passes a
+real WAV analysis flow.
 
 ## Milestone 6: Analysis Reliability and Resolution - Complete
 

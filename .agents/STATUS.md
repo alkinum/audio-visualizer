@@ -39,9 +39,11 @@ workflow, and adds:
 - `npm run lint`: passed
 - `npm run test`: passed, 20 tests
 - `npm run build`: passed with Cloudflare adapter output
-- `npx wrangler deploy --dry-run`: passed
 - `npx wrangler types --check`: passed
 - `npm audit --omit=dev`: 0 production vulnerabilities
+- Cloudflare Pages production deployment: passed
+- `https://audio-visualizer.pwp.sh`: returned 200 and completed a real WAV
+  decode, Worker analysis, waveform, and spectrum flow with no console errors
 - Playwright: desktop, tablet, and mobile light/dark screenshots passed with
   no console errors or horizontal overflow
 - Playwright: a forced Worker startup failure exposed structured diagnostics,
@@ -66,7 +68,8 @@ workflow, and adds:
 - Restored file validation, drag/drop, browser decoding, play, pause, seek,
   Space and arrow keyboard controls, and waveform pointer seeking.
 - Added semantic light and dark tokens with system fallback and persistence.
-- Added Cloudflare dry-run evidence without external upload or storage.
+- Deployed the committed SvelteKit build to the existing Cloudflare Pages
+  project and verified the custom production domain.
 - Added a typed FFT Worker with bounded frames, perceptual-log frequency bins, progress,
   cancellation, and Combined, L/R, Mid, and Side outputs.
 - Added Worker readiness, plan acknowledgement, startup/stall watchdogs,
