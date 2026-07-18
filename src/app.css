@@ -21,6 +21,11 @@
   --chart-grid: rgb(48 69 64 / 0.12);
   --chart-primary: #008f79;
   --chart-secondary: #b77519;
+  --channel-combined: #d8e2df;
+  --channel-left: #56c8ff;
+  --channel-right: #ff7196;
+  --channel-mid: #ffd15c;
+  --channel-side: #b993ff;
   --playhead: #d45151;
   --shadow: 0 18px 50px rgb(35 60 53 / 0.09);
 }
@@ -45,6 +50,11 @@
   --chart-grid: rgb(184 211 203 / 0.1);
   --chart-primary: #45cdb0;
   --chart-secondary: #d59b4d;
+  --channel-combined: #dce7e4;
+  --channel-left: #68ceff;
+  --channel-right: #ff7c9e;
+  --channel-mid: #ffd76b;
+  --channel-side: #c19cff;
   --playhead: #f06d70;
   --shadow: 0 18px 50px rgb(0 0 0 / 0.24);
 }
@@ -567,9 +577,69 @@ main.has-session {
 
 .spectrogram-canvas {
   width: 100%;
-  height: 332px;
+  height: 430px;
   touch-action: none;
   cursor: crosshair;
+}
+
+.viz-section.spectrogram-section {
+  padding-bottom: 0;
+}
+
+.spectrogram-section .spectrogram-canvas {
+  border-bottom: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.spectrogram-canvas .playhead span {
+  display: none;
+}
+
+.spectrogram-modes button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.spectrogram-modes button.active {
+  box-shadow:
+    inset 0 0 0 1px var(--line-strong),
+    0 1px 3px rgb(20 35 31 / 0.1);
+}
+
+.mode-channel-mark {
+  height: 11px;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.mode-channel-mark i {
+  width: 3px;
+  display: block;
+  border-radius: 1px;
+}
+
+.mix-mark i {
+  background: var(--channel-combined);
+}
+
+.lr-mark i:first-child {
+  background: var(--channel-left);
+}
+
+.lr-mark i:last-child {
+  background: var(--channel-right);
+}
+
+.ms-mark i:first-child {
+  background: var(--channel-mid);
+}
+
+.ms-mark i:last-child {
+  background: var(--channel-side);
 }
 
 .spectrogram-canvas.seeking {
@@ -667,7 +737,7 @@ main.has-session {
 
 .analysis-pending-surface {
   width: 100%;
-  height: 332px;
+  height: 430px;
   padding: clamp(24px, 5vw, 54px);
   display: grid;
   align-content: center;
