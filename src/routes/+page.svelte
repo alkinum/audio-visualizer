@@ -1,11 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { AudioWaveform, CodeXml, Moon, Pause, Play, Sun } from '@lucide/svelte';
+  import { AlertTriangle, AudioWaveform, Check, CodeXml, Copy, Moon, Pause, Play, Sun } from '@lucide/svelte';
+  import AnalysisPending from '$lib/components/AnalysisPending.svelte';
   import FileDropzone from '$lib/components/FileDropzone.svelte';
   import LiveRack from '$lib/components/LiveRack.svelte';
   import Spectrogram from '$lib/components/Spectrogram.svelte';
   import Waveform from '$lib/components/Waveform.svelte';
-  import { analyzeAudioBuffer, type AnalysisTask } from '$lib/audio/analysis';
+  import {
+    analyzeAudioBuffer,
+    AudioAnalysisError,
+    formatAudioAnalysisDiagnostics,
+    type AnalysisTask,
+  } from '$lib/audio/analysis';
   import { decodeAudioFile } from '$lib/audio/decode';
   import { PlaybackEngine } from '$lib/audio/playback';
   import type { AnalysisProgress, AnalyzerBank, DecodedAudio, PlaybackSnapshot, ResolvedTheme } from '$lib/audio/types';
@@ -26,6 +32,8 @@
   let theme = $state<ResolvedTheme>('dark');
   let analysisProgress = $state<AnalysisProgress | null>(null);
   let analysisTask = $state<AnalysisTask | null>(null);
+  let analysisFailure = $state<AudioAnalysisError | null>(null);
+  let diagnosticsCopyState = $state<'idle' | 'copied' | 'failed'>('idle');
   let analyzers = $state<AnalyzerBank | null>(null);
   let decodeGeneration = 0;
 
@@ -98,6 +106,8 @@
     analysisTask?.cancel();
     analysisTask = null;
     analysisProgress = null;
+    analysisFailure = null;
+    diagnosticsCopyState = 'idle';
     selectedFile = file;
     decoded = null;
     analyzers = null;
@@ -116,25 +126,40 @@
         if (engine) playback = engine.snapshot;
       });
       playback = engine.snapshot;
+      busy = false;
 
       const task = analyzeAudioBuffer(nextAudio.buffer, (progress) => {
         if (generation === decodeGeneration) analysisProgress = progress;
+      }, {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
       });
       analysisTask = task;
       const analysis = await task.promise;
       if (generation !== decodeGeneration) return;
       decoded = { ...nextAudio, analysis };
       analysisProgress = {
+        stage: 'finalizing',
         progress: 100,
         frame: analysis.frameCount,
         totalFrames: analysis.frameCount,
+        elapsedMs: performance.now() - task.startedAt,
       };
+      analysisTask = null;
     } catch (cause) {
       if (generation !== decodeGeneration) return;
-      console.error(decodeComplete ? 'Spectrum analysis failed' : 'Audio decode failed', cause);
       if (decodeComplete) {
-        error = 'Spectrum analysis failed. Playback and waveform remain available.';
+        if (cause instanceof AudioAnalysisError) {
+          analysisFailure = cause;
+        } else {
+          console.error('Spectrum analysis failed', cause);
+          error = 'Spectrum analysis failed. Playback and waveform remain available.';
+        }
+        analysisTask = null;
       } else {
+        console.error('Audio decode failed', cause);
         error = 'This file could not be decoded by the browser.';
         selectedFile = null;
       }
@@ -161,6 +186,18 @@
 
   function isAudioFile(file: File): boolean {
     return file.type.startsWith('audio/') || /\.(wav|mp3|m4a|aac|flac|ogg|opus)$/i.test(file.name);
+  }
+
+  async function copyAnalysisDiagnostics(): Promise<void> {
+    if (!analysisFailure) return;
+
+    try {
+      await navigator.clipboard.writeText(formatAudioAnalysisDiagnostics(analysisFailure));
+      diagnosticsCopyState = 'copied';
+    } catch (cause) {
+      diagnosticsCopyState = 'failed';
+      console.error('Could not copy analysis diagnostics', cause);
+    }
   }
 </script>
 
@@ -299,11 +336,34 @@
             {theme}
             onSeek={(time) => void seek(time)}
           />
-        {:else if analysisProgress && analysisProgress.progress < 100}
-          <div class="analysis-progress" aria-live="polite">
-            <span>Preparing spectrum</span>
-            <strong>{analysisProgress.progress}%</strong>
-          </div>
+        {:else if analysisFailure}
+          <section class="viz-section analysis-failure" aria-labelledby="analysis-failure-title" role="alert">
+            <div class="analysis-failure-heading">
+              <span class="analysis-failure-icon" aria-hidden="true">
+                <AlertTriangle size={18} strokeWidth={1.7} />
+              </span>
+              <div>
+                <h2 id="analysis-failure-title">Spectrum analysis stopped</h2>
+                <p>{analysisFailure.message}</p>
+                <span>Playback and waveform remain available.</span>
+              </div>
+              <button class="diagnostics-copy" type="button" onclick={() => void copyAnalysisDiagnostics()}>
+                {#if diagnosticsCopyState === 'copied'}
+                  <Check size={15} strokeWidth={1.8} aria-hidden="true" />
+                  Copied
+                {:else}
+                  <Copy size={15} strokeWidth={1.8} aria-hidden="true" />
+                  {diagnosticsCopyState === 'failed' ? 'Copy failed' : 'Copy diagnostics'}
+                {/if}
+              </button>
+            </div>
+            <details class="analysis-diagnostics">
+              <summary>Technical details</summary>
+              <pre>{formatAudioAnalysisDiagnostics(analysisFailure)}</pre>
+            </details>
+          </section>
+        {:else if analysisProgress && analysisTask}
+          <AnalysisPending progress={analysisProgress} plan={analysisTask.plan} startedAt={analysisTask.startedAt} />
         {/if}
         <LiveRack
           {analyzers}

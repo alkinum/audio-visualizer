@@ -70,26 +70,17 @@
   ): void {
     const plotHeight = Math.max(1, panelHeight - 22);
     const values = analysis.channels[channel];
-    const frameWidth = width / analysis.frameCount;
-    const binHeight = plotHeight / analysis.binCount;
-
     context.fillStyle = getComputedStyle(container).getPropertyValue('--surface-muted').trim();
     context.fillRect(0, top, width, plotHeight);
-
-    for (let frame = 0; frame < analysis.frameCount; frame += 1) {
-      const x = frame * frameWidth;
-      for (let bin = 0; bin < analysis.binCount; bin += 1) {
-        const db = values[frame * analysis.binCount + bin];
-        const intensity = Math.max(0, Math.min(1, (db - analysis.minDb) / (analysis.maxDb - analysis.minDb)));
-        context.fillStyle = heatColor(intensity);
-        context.fillRect(x, top + plotHeight - (bin + 1) * binHeight, Math.ceil(frameWidth + 0.5), Math.ceil(binHeight + 0.5));
-      }
-    }
+    const raster = makeSpectrumRaster(values);
+    context.imageSmoothingEnabled = false;
+    context.drawImage(raster, 0, top, width, plotHeight);
 
     context.strokeStyle = grid;
     context.lineWidth = 1;
     const frequencies = [20, 100, 1000, 10000];
     frequencies.forEach((frequency) => {
+      if (frequency > analysis.sampleRate / 2) return;
       const y = top + plotHeight - frequencyToRatio(frequency) * plotHeight;
       context.beginPath();
       context.moveTo(0, y + 0.5);
@@ -120,12 +111,63 @@
     return Math.max(0, Math.min(1, (Math.log(frequency) - min) / (max - min)));
   }
 
-  function heatColor(intensity: number): string {
-    if (intensity < 0.06) return 'rgb(19 28 29)';
-    const hue = 178 - intensity * 148;
-    const saturation = 57 + intensity * 20;
-    const lightness = 18 + intensity * 40;
-    return `hsl(${hue} ${saturation}% ${lightness}%)`;
+  function makeSpectrumRaster(values: Float32Array): HTMLCanvasElement {
+    const raster = document.createElement('canvas');
+    raster.width = analysis.frameCount;
+    raster.height = analysis.binCount;
+    const rasterContext = raster.getContext('2d');
+    if (!rasterContext) return raster;
+
+    const image = rasterContext.createImageData(analysis.frameCount, analysis.binCount);
+    const palette = makeHeatPalette();
+    const range = analysis.maxDb - analysis.minDb;
+    for (let frame = 0; frame < analysis.frameCount; frame += 1) {
+      for (let bin = 0; bin < analysis.binCount; bin += 1) {
+        const db = values[frame * analysis.binCount + bin];
+        const intensity = Math.max(0, Math.min(1, (db - analysis.minDb) / range));
+        const colorOffset = Math.round(intensity * 255) * 4;
+        const pixelOffset = ((analysis.binCount - 1 - bin) * analysis.frameCount + frame) * 4;
+        image.data[pixelOffset] = palette[colorOffset];
+        image.data[pixelOffset + 1] = palette[colorOffset + 1];
+        image.data[pixelOffset + 2] = palette[colorOffset + 2];
+        image.data[pixelOffset + 3] = 255;
+      }
+    }
+    rasterContext.putImageData(image, 0, 0);
+    return raster;
+  }
+
+  function makeHeatPalette(): Uint8ClampedArray {
+    const palette = new Uint8ClampedArray(256 * 4);
+    for (let index = 0; index < 256; index += 1) {
+      const intensity = index / 255;
+      const offset = index * 4;
+      const color = intensity < 0.06
+        ? [19, 28, 29]
+        : hslToRgb(178 - intensity * 148, 57 + intensity * 20, 18 + intensity * 40);
+      palette[offset] = color[0];
+      palette[offset + 1] = color[1];
+      palette[offset + 2] = color[2];
+      palette[offset + 3] = 255;
+    }
+    return palette;
+  }
+
+  function hslToRgb(hue: number, saturation: number, lightness: number): [number, number, number] {
+    const s = saturation / 100;
+    const l = lightness / 100;
+    const chroma = (1 - Math.abs(2 * l - 1)) * s;
+    const segment = hue / 60;
+    const secondary = chroma * (1 - Math.abs((segment % 2) - 1));
+    const [red, green, blue] =
+      segment < 1 ? [chroma, secondary, 0]
+      : segment < 2 ? [secondary, chroma, 0]
+      : segment < 3 ? [0, chroma, secondary]
+      : segment < 4 ? [0, secondary, chroma]
+      : segment < 5 ? [secondary, 0, chroma]
+      : [chroma, 0, secondary];
+    const match = l - chroma / 2;
+    return [Math.round((red + match) * 255), Math.round((green + match) * 255), Math.round((blue + match) * 255)];
   }
 
   function channelLabel(channel: 'combined' | 'left' | 'right' | 'mid' | 'side'): string {

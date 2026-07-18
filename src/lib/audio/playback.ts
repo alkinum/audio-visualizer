@@ -1,6 +1,6 @@
 import type { AnalyzerBank, PlaybackSnapshot } from './types';
 
-const ANALYZER_FFT_SIZE = 4096;
+const ANALYZER_FFT_SIZE = 8192;
 const MATRIX_GAIN = Math.SQRT1_2;
 
 export class PlaybackEngine {

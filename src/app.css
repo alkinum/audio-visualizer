@@ -654,21 +654,234 @@ main.has-session {
   color: var(--accent);
 }
 
-.analysis-progress {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 18px 14px;
+.analysis-quality {
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
   color: var(--text-faint);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 10px;
+  font-size: 9px;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
-.analysis-progress strong {
+.analysis-pending-surface {
+  width: 100%;
+  height: 332px;
+  padding: clamp(24px, 5vw, 54px);
+  display: grid;
+  align-content: center;
+}
+
+.analysis-pending-status,
+.analysis-failure-heading {
+  display: flex;
+  align-items: center;
+}
+
+.analysis-pending-status {
+  gap: 12px;
+}
+
+.analysis-spinner,
+.analysis-failure-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+}
+
+.analysis-spinner {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
   color: var(--accent);
+}
+
+.analysis-spinner svg {
+  animation: analysis-spin 1.15s linear infinite;
+}
+
+.analysis-pending-status > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.analysis-pending-status strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-pending-status span,
+.analysis-plan-grid dt,
+.analysis-plan-grid dd {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-pending-status span {
+  color: var(--text-faint);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.analysis-pending-status b {
+  margin-left: auto;
+  color: var(--accent);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 24px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  font-weight: 550;
+}
+
+.analysis-progress-track {
+  height: 3px;
+  margin: 22px 0 24px;
+  overflow: hidden;
+  background: var(--surface-strong);
+}
+
+.analysis-progress-track span {
+  height: 100%;
+  display: block;
+  background: var(--accent);
+  transition: width 180ms ease-out;
+}
+
+.analysis-plan-grid {
+  margin: 0;
+  padding-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.analysis-plan-grid div {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.analysis-plan-grid dt,
+.analysis-plan-grid dd {
+  margin: 0;
+}
+
+.analysis-plan-grid dt {
+  color: var(--text-faint);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.analysis-plan-grid dd {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-failure {
+  background: color-mix(in srgb, var(--danger-soft) 35%, var(--surface));
+}
+
+.analysis-failure-heading {
+  gap: 12px;
+}
+
+.analysis-failure-icon {
+  width: 34px;
+  height: 34px;
+  border: 1px solid color-mix(in srgb, var(--danger) 38%, var(--line));
+  border-radius: 6px;
+  color: var(--danger);
+}
+
+.analysis-failure-heading > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.analysis-failure h2,
+.analysis-failure p {
+  margin: 0;
+}
+
+.analysis-failure h2 {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.analysis-failure p {
+  color: var(--danger);
   font-size: 11px;
+  line-height: 1.45;
+}
+
+.analysis-failure-heading > div > span {
+  color: var(--text-faint);
+  font-size: 10px;
+}
+
+.diagnostics-copy {
+  min-height: 32px;
+  margin-left: auto;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.diagnostics-copy:hover {
+  border-color: var(--danger);
+  color: var(--text);
+}
+
+.analysis-diagnostics {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.analysis-diagnostics summary {
+  width: fit-content;
+  padding: 12px 0 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.analysis-diagnostics pre {
+  max-height: 320px;
+  margin: 12px 0 0;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font: 10px/1.55 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .waveform-canvas.seeking {
@@ -724,6 +937,12 @@ main.has-session {
   }
   100% {
     transform: scaleX(1);
+  }
+}
+
+@keyframes analysis-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
@@ -792,6 +1011,19 @@ main.has-session {
   .live-panel {
     padding: 14px;
   }
+
+  .analysis-plan-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analysis-failure-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .diagnostics-copy {
+    margin-left: 46px;
+  }
 }
 
 @media (max-width: 460px) {
@@ -825,6 +1057,19 @@ main.has-session {
   .segmented button {
     min-width: 44px;
     padding: 0 7px;
+  }
+
+  .analysis-pending-surface {
+    padding: 24px 18px;
+  }
+
+  .analysis-pending-status b {
+    font-size: 20px;
+  }
+
+  .diagnostics-copy {
+    width: calc(100% - 46px);
+    justify-content: center;
   }
 }
 

@@ -1,6 +1,6 @@
 import type { DecodedAudio, PeakSeries, WaveformData } from './types';
 
-const DEFAULT_PEAK_COUNT = 1600;
+const DEFAULT_PEAK_COUNT = 8192;
 
 export async function decodeAudioFile(file: File): Promise<DecodedAudio> {
   const context = new AudioContext();
@@ -20,14 +20,43 @@ export async function decodeAudioFile(file: File): Promise<DecodedAudio> {
 
 export function extractWaveform(buffer: AudioBuffer, peakCount = DEFAULT_PEAK_COUNT): WaveformData {
   const count = Math.max(1, Math.min(peakCount, buffer.length));
-  const left = buffer.getChannelData(0);
-  const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left;
+  const leftSamples = buffer.getChannelData(0);
+  const rightSamples = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : leftSamples;
+  const left = createPeakSeries(count);
+  const right = createPeakSeries(count);
+  const combined = createPeakSeries(count);
 
-  return {
-    left: extractChannelPeaks(left, count),
-    right: extractChannelPeaks(right, count),
-    combined: extractCombinedPeaks(left, right, count),
-  };
+  for (let bucket = 0; bucket < count; bucket += 1) {
+    const start = Math.floor((bucket * buffer.length) / count);
+    const end = Math.min(buffer.length, Math.max(start + 1, Math.floor(((bucket + 1) * buffer.length) / count)));
+    let leftMinimum = 1;
+    let leftMaximum = -1;
+    let rightMinimum = 1;
+    let rightMaximum = -1;
+    let combinedMinimum = 1;
+    let combinedMaximum = -1;
+
+    for (let index = start; index < end; index += 1) {
+      const leftSample = leftSamples[index];
+      const rightSample = rightSamples[index];
+      const combinedSample = (leftSample + rightSample) * 0.5;
+      leftMinimum = Math.min(leftMinimum, leftSample);
+      leftMaximum = Math.max(leftMaximum, leftSample);
+      rightMinimum = Math.min(rightMinimum, rightSample);
+      rightMaximum = Math.max(rightMaximum, rightSample);
+      combinedMinimum = Math.min(combinedMinimum, combinedSample);
+      combinedMaximum = Math.max(combinedMaximum, combinedSample);
+    }
+
+    left.min[bucket] = leftMinimum;
+    left.max[bucket] = leftMaximum;
+    right.min[bucket] = rightMinimum;
+    right.max[bucket] = rightMaximum;
+    combined.min[bucket] = combinedMinimum;
+    combined.max[bucket] = combinedMaximum;
+  }
+
+  return { left, right, combined };
 }
 
 function createPeakSeries(count: number): PeakSeries {
@@ -35,48 +64,4 @@ function createPeakSeries(count: number): PeakSeries {
     min: new Float32Array(count),
     max: new Float32Array(count),
   };
-}
-
-function extractChannelPeaks(samples: Float32Array, count: number): PeakSeries {
-  const peaks = createPeakSeries(count);
-
-  for (let bucket = 0; bucket < count; bucket += 1) {
-    const start = Math.floor((bucket * samples.length) / count);
-    const end = Math.max(start + 1, Math.floor(((bucket + 1) * samples.length) / count));
-    let minimum = 1;
-    let maximum = -1;
-
-    for (let index = start; index < end && index < samples.length; index += 1) {
-      const sample = samples[index];
-      minimum = Math.min(minimum, sample);
-      maximum = Math.max(maximum, sample);
-    }
-
-    peaks.min[bucket] = minimum;
-    peaks.max[bucket] = maximum;
-  }
-
-  return peaks;
-}
-
-function extractCombinedPeaks(left: Float32Array, right: Float32Array, count: number): PeakSeries {
-  const peaks = createPeakSeries(count);
-
-  for (let bucket = 0; bucket < count; bucket += 1) {
-    const start = Math.floor((bucket * left.length) / count);
-    const end = Math.max(start + 1, Math.floor(((bucket + 1) * left.length) / count));
-    let minimum = 1;
-    let maximum = -1;
-
-    for (let index = start; index < end && index < left.length; index += 1) {
-      const sample = (left[index] + right[index]) * 0.5;
-      minimum = Math.min(minimum, sample);
-      maximum = Math.max(maximum, sample);
-    }
-
-    peaks.min[bucket] = minimum;
-    peaks.max[bucket] = maximum;
-  }
-
-  return peaks;
 }

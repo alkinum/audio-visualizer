@@ -1,8 +1,8 @@
 import type { AnalysisChannel, OfflineAnalysis } from './types';
 
-export const FFT_SIZE = 2048;
-export const SPECTRUM_BINS = 192;
-export const MAX_SPECTRUM_FRAMES = 1200;
+export const FFT_SIZE = 4096;
+export const SPECTRUM_BINS = 512;
+export const MAX_SPECTRUM_FRAMES = 3600;
 export const MIN_SPECTRUM_DB = -100;
 export const MAX_SPECTRUM_DB = 0;
 
@@ -13,6 +13,23 @@ export interface AnalysisOptions {
   minDb?: number;
   maxDb?: number;
   onProgress?: (frame: number, totalFrames: number) => void;
+}
+
+interface FftPlan {
+  size: number;
+  reverse: Uint32Array;
+  cosine: Float32Array;
+  sine: Float32Array;
+}
+
+interface FftWorkspace {
+  real: Float32Array;
+  imag: Float32Array;
+}
+
+export interface LogBand {
+  start: number;
+  end: number;
 }
 
 export function analyzeStereo(
@@ -27,24 +44,24 @@ export function analyzeStereo(
   const maxFrames = options.maxFrames ?? MAX_SPECTRUM_FRAMES;
   const minDb = options.minDb ?? MIN_SPECTRUM_DB;
   const maxDb = options.maxDb ?? MAX_SPECTRUM_DB;
+  validateAnalysisInput(left, right, sampleRate, duration, fftSize, binCount, maxFrames, minDb, maxDb);
+
   const length = Math.max(left.length, right.length);
   const framePlan = makeFramePlan(length, fftSize, maxFrames);
   const channels = makeChannelBuffers(framePlan.frameCount, binCount);
   const window = makeHannWindow(fftSize);
   const bands = makeLogBands(sampleRate, fftSize, binCount);
+  const fftPlan = makeFftPlan(fftSize);
+  const leftFft = makeFftWorkspace(fftSize);
+  const rightFft = makeFftWorkspace(fftSize);
 
   for (let frame = 0; frame < framePlan.frameCount; frame += 1) {
     const start = frame * framePlan.hopSize;
-    const leftFrame = readWindow(left, start, fftSize, window);
-    const rightFrame = readWindow(right, start, fftSize, window);
-    const leftFft = fft(leftFrame);
-    const rightFft = fft(rightFrame);
-
-    writeFrame(channels, 'left', frame, leftFft, undefined, bands, minDb, maxDb);
-    writeFrame(channels, 'right', frame, rightFft, undefined, bands, minDb, maxDb);
-    writeFrame(channels, 'combined', frame, leftFft, rightFft, bands, minDb, maxDb);
-    writeFrame(channels, 'mid', frame, leftFft, rightFft, bands, minDb, maxDb, 'mid');
-    writeFrame(channels, 'side', frame, leftFft, rightFft, bands, minDb, maxDb, 'side');
+    prepareFftFrame(left, start, window, leftFft);
+    prepareFftFrame(right, start, window, rightFft);
+    transformFft(leftFft, fftPlan);
+    transformFft(rightFft, fftPlan);
+    writeChannelFrame(channels, frame, leftFft, rightFft, bands, minDb, maxDb);
     options.onProgress?.(frame + 1, framePlan.frameCount);
   }
 
@@ -71,55 +88,11 @@ export function makeFramePlan(length: number, fftSize: number, maxFrames: number
 }
 
 export function fft(input: Float32Array): { real: Float32Array; imag: Float32Array } {
-  const size = input.length;
-  if (size < 2 || (size & (size - 1)) !== 0) {
-    throw new Error('FFT size must be a power of two');
-  }
-
-  const real = new Float32Array(input);
-  const imag = new Float32Array(size);
-
-  let reverse = 0;
-  for (let index = 0; index < size - 1; index += 1) {
-    if (index < reverse) {
-      [real[index], real[reverse]] = [real[reverse], real[index]];
-    }
-
-    let bit = size >> 1;
-    while (reverse >= bit && bit > 0) {
-      reverse -= bit;
-      bit >>= 1;
-    }
-    reverse += bit;
-  }
-
-  for (let span = 2; span <= size; span <<= 1) {
-    const half = span >> 1;
-    const angle = -2 * Math.PI / span;
-    const phaseReal = Math.cos(angle);
-    const phaseImag = Math.sin(angle);
-    let currentReal = 1;
-    let currentImag = 0;
-
-    for (let offset = 0; offset < half; offset += 1) {
-      for (let index = offset; index < size; index += span) {
-        const pair = index + half;
-        const transformedReal = currentReal * real[pair] - currentImag * imag[pair];
-        const transformedImag = currentReal * imag[pair] + currentImag * real[pair];
-        real[pair] = real[index] - transformedReal;
-        imag[pair] = imag[index] - transformedImag;
-        real[index] += transformedReal;
-        imag[index] += transformedImag;
-      }
-
-      [currentReal, currentImag] = [
-        currentReal * phaseReal - currentImag * phaseImag,
-        currentReal * phaseImag + currentImag * phaseReal,
-      ];
-    }
-  }
-
-  return { real, imag };
+  const plan = makeFftPlan(input.length);
+  const workspace = makeFftWorkspace(input.length);
+  workspace.real.set(input);
+  transformFft(workspace, plan);
+  return workspace;
 }
 
 export function makeHannWindow(size: number): Float32Array {
@@ -130,14 +103,10 @@ export function makeHannWindow(size: number): Float32Array {
   return window;
 }
 
-interface LogBand {
-  start: number;
-  end: number;
-}
-
-function makeLogBands(sampleRate: number, fftSize: number, binCount: number): LogBand[] {
+export function makeLogBands(sampleRate: number, fftSize: number, binCount: number): LogBand[] {
   const minFrequency = 20;
   const maxFrequency = Math.max(minFrequency, sampleRate / 2);
+  const maxIndex = Math.floor(fftSize / 2);
   const bands: LogBand[] = [];
   const logMin = Math.log(minFrequency);
   const logMax = Math.log(maxFrequency);
@@ -145,21 +114,90 @@ function makeLogBands(sampleRate: number, fftSize: number, binCount: number): Lo
   for (let index = 0; index < binCount; index += 1) {
     const lower = Math.exp(logMin + ((logMax - logMin) * index) / binCount);
     const upper = Math.exp(logMin + ((logMax - logMin) * (index + 1)) / binCount);
-    const start = Math.max(1, Math.floor((lower * fftSize) / sampleRate));
-    const end = Math.max(start + 1, Math.ceil((upper * fftSize) / sampleRate));
-    bands.push({ start, end: Math.min(fftSize / 2, end) });
+    const start = Math.min(maxIndex, Math.max(1, Math.floor((lower * fftSize) / sampleRate)));
+    const end = Math.min(maxIndex + 1, Math.max(start + 1, Math.ceil((upper * fftSize) / sampleRate)));
+    bands.push({ start, end });
   }
 
   return bands;
 }
 
-function readWindow(samples: Float32Array, start: number, size: number, window: Float32Array): Float32Array {
-  const frame = new Float32Array(size);
-  for (let index = 0; index < size; index += 1) {
-    const sampleIndex = start + index;
-    frame[index] = (sampleIndex < samples.length ? samples[sampleIndex] : 0) * window[index];
+function makeFftPlan(size: number): FftPlan {
+  if (size < 2 || (size & (size - 1)) !== 0) {
+    throw new Error('FFT size must be a power of two');
   }
-  return frame;
+
+  const reverse = new Uint32Array(size);
+  const bits = Math.log2(size);
+  for (let index = 0; index < size; index += 1) {
+    let source = index;
+    let target = 0;
+    for (let bit = 0; bit < bits; bit += 1) {
+      target = (target << 1) | (source & 1);
+      source >>= 1;
+    }
+    reverse[index] = target;
+  }
+
+  const cosine = new Float32Array(size / 2);
+  const sine = new Float32Array(size / 2);
+  for (let index = 0; index < size / 2; index += 1) {
+    const angle = (-2 * Math.PI * index) / size;
+    cosine[index] = Math.cos(angle);
+    sine[index] = Math.sin(angle);
+  }
+
+  return { size, reverse, cosine, sine };
+}
+
+function makeFftWorkspace(size: number): FftWorkspace {
+  return {
+    real: new Float32Array(size),
+    imag: new Float32Array(size),
+  };
+}
+
+function prepareFftFrame(
+  samples: Float32Array,
+  start: number,
+  window: Float32Array,
+  workspace: FftWorkspace,
+): void {
+  workspace.imag.fill(0);
+  for (let index = 0; index < window.length; index += 1) {
+    const sampleIndex = start + index;
+    workspace.real[index] = (sampleIndex < samples.length ? samples[sampleIndex] : 0) * window[index];
+  }
+}
+
+function transformFft(workspace: FftWorkspace, plan: FftPlan): void {
+  const { real, imag } = workspace;
+  for (let index = 0; index < plan.size; index += 1) {
+    const reverse = plan.reverse[index];
+    if (index >= reverse) continue;
+    [real[index], real[reverse]] = [real[reverse], real[index]];
+    [imag[index], imag[reverse]] = [imag[reverse], imag[index]];
+  }
+
+  for (let span = 2; span <= plan.size; span *= 2) {
+    const half = span / 2;
+    const tableStep = plan.size / span;
+    for (let offset = 0; offset < half; offset += 1) {
+      const twiddle = offset * tableStep;
+      const phaseReal = plan.cosine[twiddle];
+      const phaseImag = plan.sine[twiddle];
+
+      for (let index = offset; index < plan.size; index += span) {
+        const pair = index + half;
+        const transformedReal = phaseReal * real[pair] - phaseImag * imag[pair];
+        const transformedImag = phaseReal * imag[pair] + phaseImag * real[pair];
+        real[pair] = real[index] - transformedReal;
+        imag[pair] = imag[index] - transformedImag;
+        real[index] += transformedReal;
+        imag[index] += transformedImag;
+      }
+    }
+  }
 }
 
 function makeChannelBuffers(frameCount: number, binCount: number): Record<AnalysisChannel, Float32Array> {
@@ -173,57 +211,75 @@ function makeChannelBuffers(frameCount: number, binCount: number): Record<Analys
   };
 }
 
-type DerivedMode = 'mid' | 'side';
-
-function writeFrame(
+function writeChannelFrame(
   channels: Record<AnalysisChannel, Float32Array>,
-  target: AnalysisChannel,
   frame: number,
-  left: { real: Float32Array; imag: Float32Array },
-  right: { real: Float32Array; imag: Float32Array } | undefined,
+  left: FftWorkspace,
+  right: FftWorkspace,
   bands: LogBand[],
   minDb: number,
   maxDb: number,
-  derivedMode?: DerivedMode,
 ): void {
-  const output = channels[target];
+  const outputOffset = frame * bands.length;
   const scale = 2 / left.real.length;
 
   for (let band = 0; band < bands.length; band += 1) {
     const range = bands[band];
-    let energy = 0;
-    let count = 0;
+    let leftEnergy = 0;
+    let rightEnergy = 0;
+    let midEnergy = 0;
+    let sideEnergy = 0;
 
     for (let index = range.start; index < range.end; index += 1) {
       const leftReal = left.real[index];
       const leftImag = left.imag[index];
-      let real = leftReal;
-      let imag = leftImag;
-
-      if (right) {
-        const rightReal = right.real[index];
-        const rightImag = right.imag[index];
-        if (target === 'combined') {
-          energy += (leftReal * leftReal + leftImag * leftImag + rightReal * rightReal + rightImag * rightImag) * 0.5;
-        } else if (derivedMode === 'mid') {
-          real = (leftReal + rightReal) * Math.SQRT1_2;
-          imag = (leftImag + rightImag) * Math.SQRT1_2;
-          energy += real * real + imag * imag;
-        } else if (derivedMode === 'side') {
-          real = (leftReal - rightReal) * Math.SQRT1_2;
-          imag = (leftImag - rightImag) * Math.SQRT1_2;
-          energy += real * real + imag * imag;
-        } else {
-          energy += real * real + imag * imag;
-        }
-      } else {
-        energy += real * real + imag * imag;
-      }
-      count += 1;
+      const rightReal = right.real[index];
+      const rightImag = right.imag[index];
+      leftEnergy += leftReal * leftReal + leftImag * leftImag;
+      rightEnergy += rightReal * rightReal + rightImag * rightImag;
+      const midReal = (leftReal + rightReal) * Math.SQRT1_2;
+      const midImag = (leftImag + rightImag) * Math.SQRT1_2;
+      const sideReal = (leftReal - rightReal) * Math.SQRT1_2;
+      const sideImag = (leftImag - rightImag) * Math.SQRT1_2;
+      midEnergy += midReal * midReal + midImag * midImag;
+      sideEnergy += sideReal * sideReal + sideImag * sideImag;
     }
 
-    const magnitude = Math.sqrt(energy / Math.max(1, count)) * scale;
-    const db = Math.max(minDb, Math.min(maxDb, 20 * Math.log10(Math.max(1e-7, magnitude))));
-    output[frame * bands.length + band] = db;
+    const count = range.end - range.start;
+    const outputIndex = outputOffset + band;
+    channels.left[outputIndex] = energyToDb(leftEnergy, count, scale, minDb, maxDb);
+    channels.right[outputIndex] = energyToDb(rightEnergy, count, scale, minDb, maxDb);
+    channels.combined[outputIndex] = energyToDb((leftEnergy + rightEnergy) * 0.5, count, scale, minDb, maxDb);
+    channels.mid[outputIndex] = energyToDb(midEnergy, count, scale, minDb, maxDb);
+    channels.side[outputIndex] = energyToDb(sideEnergy, count, scale, minDb, maxDb);
+  }
+}
+
+function energyToDb(energy: number, count: number, scale: number, minDb: number, maxDb: number): number {
+  const magnitude = Math.sqrt(energy / Math.max(1, count)) * scale;
+  return Math.max(minDb, Math.min(maxDb, 20 * Math.log10(Math.max(1e-7, magnitude))));
+}
+
+function validateAnalysisInput(
+  left: Float32Array,
+  right: Float32Array,
+  sampleRate: number,
+  duration: number,
+  fftSize: number,
+  binCount: number,
+  maxFrames: number,
+  minDb: number,
+  maxDb: number,
+): void {
+  if (left.length === 0 || right.length === 0) throw new RangeError('Audio channels must contain samples');
+  if (!Number.isFinite(sampleRate) || sampleRate <= 0) throw new RangeError('Sample rate must be positive');
+  if (!Number.isFinite(duration) || duration <= 0) throw new RangeError('Duration must be positive');
+  if (!Number.isInteger(fftSize) || fftSize < 2 || (fftSize & (fftSize - 1)) !== 0) {
+    throw new RangeError('FFT size must be a power of two');
+  }
+  if (!Number.isInteger(binCount) || binCount < 1) throw new RangeError('Spectrum bin count must be positive');
+  if (!Number.isInteger(maxFrames) || maxFrames < 1) throw new RangeError('Spectrum frame count must be positive');
+  if (!Number.isFinite(minDb) || !Number.isFinite(maxDb) || minDb >= maxDb) {
+    throw new RangeError('Spectrum dB range is invalid');
   }
 }

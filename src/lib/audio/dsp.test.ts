@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeStereo, fft, makeFramePlan } from './dsp';
+import { analyzeStereo, fft, makeFramePlan, makeLogBands } from './dsp';
 
 describe('audio DSP', () => {
   it('places a sine-wave peak in the expected FFT bin', () => {
@@ -25,10 +25,38 @@ describe('audio DSP', () => {
     expect(peakMagnitude).toBeGreaterThan(size * 0.4);
   });
 
+  it('matches a direct Fourier transform for a small deterministic signal', () => {
+    const input = new Float32Array([0.25, -0.5, 0.75, 0.125, -0.25, 0.5, -0.75, -0.125]);
+    const result = fft(input);
+
+    for (let frequency = 0; frequency < input.length; frequency += 1) {
+      let expectedReal = 0;
+      let expectedImag = 0;
+      for (let sample = 0; sample < input.length; sample += 1) {
+        const angle = (-2 * Math.PI * frequency * sample) / input.length;
+        expectedReal += input[sample] * Math.cos(angle);
+        expectedImag += input[sample] * Math.sin(angle);
+      }
+      expect(result.real[frequency]).toBeCloseTo(expectedReal, 5);
+      expect(result.imag[frequency]).toBeCloseTo(expectedImag, 5);
+    }
+  });
+
   it('keeps offline frame output bounded for long sources', () => {
     const plan = makeFramePlan(44_100 * 60 * 30, 2048, 1200);
     expect(plan.frameCount).toBeLessThanOrEqual(1200);
     expect(plan.hopSize).toBeGreaterThanOrEqual(1);
+  });
+
+  it('keeps every log-frequency band non-empty through Nyquist', () => {
+    const fftSize = 4096;
+    const bands = makeLogBands(48_000, fftSize, 512);
+    expect(bands).toHaveLength(512);
+    for (const band of bands) {
+      expect(band.end).toBeGreaterThan(band.start);
+      expect(band.start).toBeGreaterThanOrEqual(1);
+      expect(band.end).toBeLessThanOrEqual(fftSize / 2 + 1);
+    }
   });
 
   it('keeps an in-phase stereo signal in Mid and suppresses Side', () => {

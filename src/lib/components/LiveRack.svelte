@@ -22,7 +22,10 @@
   const displayCorrelation = $derived(Math.abs(phaseCorrelation) < 0.005 ? 0 : phaseCorrelation);
   const responseHeight = 248;
   const phaseHeight = 248;
-  let cachedAnalyzers: AnalyzerBank | null = null;
+  let cachedLeftAnalyzer: AnalyserNode | null = null;
+  let cachedRightAnalyzer: AnalyserNode | null = null;
+  let cachedMidAnalyzer: AnalyserNode | null = null;
+  let cachedSideAnalyzer: AnalyserNode | null = null;
   type AudioBufferView = Float32Array<ArrayBuffer>;
   let leftFrequency: AudioBufferView | null = null;
   let rightFrequency: AudioBufferView | null = null;
@@ -72,8 +75,16 @@
   });
 
   function ensureBuffers(nextAnalyzers: AnalyzerBank): void {
-    if (cachedAnalyzers === nextAnalyzers) return;
-    cachedAnalyzers = nextAnalyzers;
+    if (
+      cachedLeftAnalyzer === nextAnalyzers.left &&
+      cachedRightAnalyzer === nextAnalyzers.right &&
+      cachedMidAnalyzer === nextAnalyzers.mid &&
+      cachedSideAnalyzer === nextAnalyzers.side
+    ) return;
+    cachedLeftAnalyzer = nextAnalyzers.left;
+    cachedRightAnalyzer = nextAnalyzers.right;
+    cachedMidAnalyzer = nextAnalyzers.mid;
+    cachedSideAnalyzer = nextAnalyzers.side;
     leftFrequency = new Float32Array(nextAnalyzers.left.frequencyBinCount);
     rightFrequency = new Float32Array(nextAnalyzers.right.frequencyBinCount);
     leftTime = new Float32Array(nextAnalyzers.left.fftSize);
@@ -253,7 +264,8 @@
 
     context.fillStyle = accent;
     context.globalAlpha = 0.7;
-    for (let index = 0; index < leftTime.length; index += 2) {
+    const sampleStep = Math.max(1, Math.floor(leftTime.length / Math.max(512, phaseWidth * 2)));
+    for (let index = 0; index < leftTime.length; index += sampleStep) {
       const left = leftTime[index];
       const right = rightTime[index];
       const x = centerX + ((left + right) * Math.SQRT1_2) * radius;
