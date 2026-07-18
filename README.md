@@ -62,9 +62,9 @@ npm run deploy
 ```
 
 The generated Pages Worker entry is `.svelte-kit/cloudflare/_worker.js`, and
-its assets are uploaded from `.svelte-kit/cloudflare`. `wrangler.jsonc` pins
-the production account, output directory, compatibility date, and
-`nodejs_compat` flag. The production URL is
+its assets are uploaded from `.svelte-kit/cloudflare`. The deploy script pins
+the production account, while `wrangler.jsonc` pins the project, output
+directory, compatibility date, and `nodejs_compat` flag. The production URL is
 [`audio-visualizer.pwp.sh`](https://audio-visualizer.pwp.sh).
 
 ## Project Documents
