@@ -111,9 +111,7 @@
 
   function drawFrequencyAxis(context: CanvasRenderingContext2D, top: number, panelHeight: number): void {
     const nyquist = analysis.sampleRate / 2;
-    const frequencies = Array.from(new Set([20, 100, 1000, 10_000, nyquist])).filter(
-      (frequency) => frequency >= 20 && frequency <= nyquist,
-    );
+    const frequencies = makeFrequencyTicks(nyquist);
     context.save();
     context.lineWidth = 1;
     context.font = '9px SFMono-Regular, Consolas, monospace';
@@ -217,9 +215,19 @@
   }
 
   function frequencyToRatio(frequency: number): number {
-    const min = Math.log(20);
-    const max = Math.log(Math.max(20, analysis.sampleRate / 2));
-    return Math.max(0, Math.min(1, (Math.log(frequency) - min) / (max - min)));
+    return Math.max(0, Math.min(1, frequency / Math.max(1, analysis.sampleRate / 2)));
+  }
+
+  function makeFrequencyTicks(nyquist: number): number[] {
+    const roughStep = nyquist / 5;
+    const magnitude = 10 ** Math.floor(Math.log10(Math.max(1, roughStep)));
+    const normalized = roughStep / magnitude;
+    const multiplier = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+    const step = multiplier * magnitude;
+    const ticks = [0];
+    for (let frequency = step; frequency < nyquist; frequency += step) ticks.push(frequency);
+    ticks.push(nyquist);
+    return ticks;
   }
 
   function channelLabel(channel: AnalysisChannel): string {
@@ -270,7 +278,7 @@
   <div class="section-heading">
     <div>
       <h2 id="spectrogram-title">Spectral history</h2>
-      <span class="section-value">20 Hz - {Math.round(analysis.sampleRate / 2000)} kHz</span>
+      <span class="section-value">0 Hz - {Math.round(analysis.sampleRate / 2000)} kHz</span>
     </div>
     <div class="segmented spectrogram-modes" aria-label="Spectrogram channel mode">
       <button class:active={mode === 'combined'} type="button" onclick={() => (mode = 'combined')}>

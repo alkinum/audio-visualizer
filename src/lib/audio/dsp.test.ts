@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeStereo, fft, makeFramePlan, makeLogBands } from './dsp';
+import { analyzeStereo, fft, makeFramePlan, makeFrequencyBands } from './dsp';
 
 describe('audio DSP', () => {
   it('places a sine-wave peak in the expected FFT bin', () => {
@@ -48,15 +48,29 @@ describe('audio DSP', () => {
     expect(plan.hopSize).toBeGreaterThanOrEqual(1);
   });
 
-  it('keeps every log-frequency band non-empty through Nyquist', () => {
+  it('keeps every linear-frequency band non-empty from DC through Nyquist', () => {
     const fftSize = 4096;
-    const bands = makeLogBands(48_000, fftSize, 512);
+    const bands = makeFrequencyBands(48_000, fftSize, 512);
     expect(bands).toHaveLength(512);
+    expect(bands[0].start).toBe(0);
+    expect(bands.at(-1)?.end).toBe(fftSize / 2 + 1);
     for (const band of bands) {
       expect(band.end).toBeGreaterThan(band.start);
-      expect(band.start).toBeGreaterThanOrEqual(1);
+      expect(band.start).toBeGreaterThanOrEqual(0);
       expect(band.end).toBeLessThanOrEqual(fftSize / 2 + 1);
     }
+  });
+
+  it('places DC energy in the bottom spectrum band', () => {
+    const samples = new Float32Array(8192).fill(0.25);
+    const analysis = analyzeStereo(samples, samples, 48_000, samples.length / 48_000, {
+      fftSize: 4096,
+      maxFrames: 1,
+      binCount: 64,
+    });
+
+    expect(analysis.channels.combined[0]).toBeGreaterThan(analysis.channels.combined[1]);
+    expect(analysis.channels.combined[0]).toBeGreaterThan(-100);
   });
 
   it('keeps an in-phase stereo signal in Mid and suppresses Side', () => {

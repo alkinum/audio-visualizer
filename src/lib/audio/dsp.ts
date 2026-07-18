@@ -50,7 +50,7 @@ export function analyzeStereo(
   const framePlan = makeFramePlan(length, fftSize, maxFrames);
   const channels = makeChannelBuffers(framePlan.frameCount, binCount);
   const window = makeHannWindow(fftSize);
-  const bands = makeLogBands(sampleRate, fftSize, binCount);
+  const bands = makeFrequencyBands(sampleRate, fftSize, binCount);
   const fftPlan = makeFftPlan(fftSize);
   const leftFft = makeFftWorkspace(fftSize);
   const rightFft = makeFftWorkspace(fftSize);
@@ -103,19 +103,17 @@ export function makeHannWindow(size: number): Float32Array {
   return window;
 }
 
-export function makeLogBands(sampleRate: number, fftSize: number, binCount: number): LogBand[] {
-  const minFrequency = 20;
-  const maxFrequency = Math.max(minFrequency, sampleRate / 2);
+export function makeFrequencyBands(sampleRate: number, fftSize: number, binCount: number): LogBand[] {
+  const nyquist = sampleRate / 2;
   const maxIndex = Math.floor(fftSize / 2);
   const bands: LogBand[] = [];
-  const logMin = Math.log(minFrequency);
-  const logMax = Math.log(maxFrequency);
 
   for (let index = 0; index < binCount; index += 1) {
-    const lower = Math.exp(logMin + ((logMax - logMin) * index) / binCount);
-    const upper = Math.exp(logMin + ((logMax - logMin) * (index + 1)) / binCount);
-    const start = Math.min(maxIndex, Math.max(1, Math.floor((lower * fftSize) / sampleRate)));
-    const end = Math.min(maxIndex + 1, Math.max(start + 1, Math.ceil((upper * fftSize) / sampleRate)));
+    const lower = (nyquist * index) / binCount;
+    const upper = (nyquist * (index + 1)) / binCount;
+    const start = Math.min(maxIndex, Math.max(0, Math.floor((lower * fftSize) / sampleRate)));
+    const rawEnd = index === binCount - 1 ? maxIndex + 1 : Math.ceil((upper * fftSize) / sampleRate);
+    const end = Math.min(maxIndex + 1, Math.max(start + 1, rawEnd));
     bands.push({ start, end });
   }
 
@@ -222,6 +220,7 @@ function writeChannelFrame(
 ): void {
   const outputOffset = frame * bands.length;
   const scale = 2 / left.real.length;
+  const nyquistIndex = left.real.length / 2;
 
   for (let band = 0; band < bands.length; band += 1) {
     const range = bands[band];
@@ -235,14 +234,15 @@ function writeChannelFrame(
       const leftImag = left.imag[index];
       const rightReal = right.real[index];
       const rightImag = right.imag[index];
-      leftEnergy += leftReal * leftReal + leftImag * leftImag;
-      rightEnergy += rightReal * rightReal + rightImag * rightImag;
+      const endpointScale = index === 0 || index === nyquistIndex ? 0.25 : 1;
+      leftEnergy += (leftReal * leftReal + leftImag * leftImag) * endpointScale;
+      rightEnergy += (rightReal * rightReal + rightImag * rightImag) * endpointScale;
       const midReal = (leftReal + rightReal) * Math.SQRT1_2;
       const midImag = (leftImag + rightImag) * Math.SQRT1_2;
       const sideReal = (leftReal - rightReal) * Math.SQRT1_2;
       const sideImag = (leftImag - rightImag) * Math.SQRT1_2;
-      midEnergy += midReal * midReal + midImag * midImag;
-      sideEnergy += sideReal * sideReal + sideImag * sideImag;
+      midEnergy += (midReal * midReal + midImag * midImag) * endpointScale;
+      sideEnergy += (sideReal * sideReal + sideImag * sideImag) * endpointScale;
     }
 
     const count = range.end - range.start;
