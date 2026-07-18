@@ -86,6 +86,28 @@ Acceptance gate:
 - all requirements have direct file, test, build, or browser evidence
 
 Evidence: README, verification matrix, Cloudflare dry-run, generated type check,
-seven passing DSP and metering tests, and the rolling commit history are in
+the passing DSP and metering suite, and the rolling commit history are in
 place. A production publish was intentionally not run because no deployment
 authorization or target account was provided.
+
+## Milestone 6: Analysis Reliability and Resolution - Complete
+
+Deliverables:
+
+- adaptive offline plans with 4096/8192 FFT, 384/512 bins, and bounded memory
+- reusable FFT workspaces and one-pass Mix/L/R/M/S frequency aggregation
+- typed Worker ready, plan, progress, result, and structured-error messages
+- startup and stall watchdogs plus message and result validation
+- stable long-analysis status and copyable technical failure details
+- 8192-point waveform peaks and live analyzer FFT
+
+Acceptance gate:
+
+- a real 30-second WAV completes the maximum plan with a non-empty spectrum
+- a forced Worker startup failure includes stage, stack, input, plan, runtime,
+  elapsed time, and a working copy action
+- desktop and 390 px mobile layouts have no horizontal overflow
+
+Evidence: 14 unit tests pass, a maximum-plan 30-second DSP benchmark completes
+in about 1.26 seconds on the development machine, and Playwright verifies the
+normal, pending, failure, copy, playback, and mobile flows.

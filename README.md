@@ -9,8 +9,10 @@ storage binding is required.
 - drag and drop or file-picker loading for common browser-decodable audio
 - waveform overview with combined and split L/R views
 - keyboard transport: Space toggles playback, arrow keys seek five seconds
-- bounded log-frequency spectrogram from 20 Hz to source Nyquist
+- adaptive high-resolution log-frequency spectrogram from 20 Hz to source Nyquist
 - Combined stereo, Left / Right, and Mid / Side spectrogram views
+- stable long-analysis status with plan, elapsed time, and progress details
+- structured Worker diagnostics with copyable failure context
 - real-time combined frequency response with L/R traces
 - real-time stereo phase image and correlation classification
 - persisted light and dark themes
@@ -46,7 +48,8 @@ npx wrangler types --check
 npx wrangler deploy --dry-run
 ```
 
-`npm run test` covers FFT peak location, bounded frame planning, Mid / Side
+`npm run test` covers FFT numerical parity and peak location, adaptive and
+bounded frame planning, log-band safety, diagnostics serialization, Mid / Side
 separation, RMS dB combination, and phase correlation math.
 
 ## Cloudflare Deployment

@@ -15,9 +15,13 @@ npm run build
 - identical L/R input produces Mid energy and a suppressed Side result
 - polarity-inverted L/R input produces Side energy and a suppressed Mid result
 - sample-rate-specific Nyquist values cap labels and bins correctly
+- every logarithmic band remains non-empty through Nyquist
+- optimized FFT output matches a direct Fourier transform
+- adaptive plans respect constrained and maximum output-memory budgets
+- Error and non-Error failures retain structured diagnostic context
 
-Automated evidence: `npm run test` passes four DSP tests covering the first four
-checks above. Browser fixture verification remains in the release milestone.
+Automated evidence: `npm run test` passes 14 DSP, planning, diagnostics, and
+metering tests.
 
 ## Browser Flows
 
@@ -39,6 +43,14 @@ Verified on 2026-07-18 with generated 48 kHz stereo WAV fixtures:
 - favicon and application resources loaded with zero console errors
 - replacing a 30 second fixture with the short fixture left only the short
   file selected and its fresh analysis visible
+- maximum-plan 30-second DSP benchmark: 4096 FFT, 512 bins, 4787 frames,
+  46.7 MiB output, about 1.26 seconds on the development machine
+- forced Worker startup timeout rendered a detailed failure panel and logged a
+  structured `worker-startup-timeout` object
+- technical details included stack, stage, 48 kHz/2-channel input, plan,
+  capability hints, elapsed time, and user agent; copy changed to `Copied`
+- normal short-WAV analysis and 8192 FFT playback completed with zero browser
+  console errors or warnings
 
 ## Visual Matrix
 
@@ -52,6 +64,10 @@ and the absence of unintended horizontal scrolling in every viewport.
 
 Screenshot evidence exists for all four target viewports and themes listed
 above. The browser reported no horizontal overflow and no console errors.
+
+The new analysis states were additionally inspected at desktop width and at
+390 x 844. The mobile document width remained exactly 390 px, and sampled
+pixels from waveform, spectrum, response, and phase canvases were non-empty.
 
 ## Cloudflare Gate
 

@@ -4,21 +4,21 @@ Last audited: 2026-07-18
 
 ## Current Baseline
 
-The repository now runs on SvelteKit 2, Svelte 5, Vite 8, and the Cloudflare
-adapter. It can load and decode an audio file in the browser, play or seek it,
-render a responsive waveform and bounded offline spectrogram, switch persisted
-light and dark themes, and build the adapter-generated Worker and assets for
-Cloudflare.
+The repository runs on SvelteKit 2, Svelte 5, Vite 8, and the Cloudflare
+adapter. It loads and decodes audio locally, renders an 8192-peak waveform,
+chooses an adaptive high-resolution offline spectrum plan, and keeps playback
+available while the typed analysis Worker runs. Worker failures now produce
+structured console and copyable in-app diagnostics.
 
-## Confirmed Gaps
+## Confirmed Limits
 
-- The offline pipeline is now sample-rate aware and maps to the source Nyquist.
-- The live analyzer now renders combined frequency response, L/R overlays, a
-  phase image, and correlation. Peak hold and export are not in scope.
-- Static visualization requires OffscreenCanvas with no main-thread fallback.
-- Audio analysis returns nested JavaScript arrays with avoidable memory cost.
-- The theme choice is now persisted and follows the system until changed.
-- DSP tests and repeatable browser verification are still pending.
+- Browser decoding support still determines which compressed formats can load.
+- The maximum offline plan can retain about 47 MiB of spectrum output plus
+  transferred channel samples in Worker memory.
+- Peak hold and export are outside the current product scope.
+- Rust/WASM is intentionally deferred: the optimized JavaScript DSP completes
+  the 30-second maximum-plan benchmark in about 1.26 seconds on the development
+  machine, while WASM would add another full-audio memory copy.
 
 ## Target State
 
@@ -37,13 +37,15 @@ workflow, and adds:
 
 - `npm run check`: passed
 - `npm run lint`: passed
-- `npm run test`: passed, 7 tests
+- `npm run test`: passed, 14 tests
 - `npm run build`: passed with Cloudflare adapter output
 - `npx wrangler deploy --dry-run`: passed
 - `npx wrangler types --check`: passed
 - `npm audit --omit=dev`: 0 production vulnerabilities
 - Playwright: desktop, tablet, and mobile light/dark screenshots passed with
   no console errors or horizontal overflow
+- Playwright: a forced Worker startup failure exposed structured diagnostics,
+  technical details, and a working copy action
 
 ## Active Risks
 
@@ -67,6 +69,16 @@ workflow, and adds:
 - Added Cloudflare dry-run evidence without external upload or storage.
 - Added a typed FFT Worker with bounded frames, log-frequency bins, progress,
   cancellation, and Combined, L/R, Mid, and Side outputs.
+- Added Worker readiness, plan acknowledgement, startup/stall watchdogs,
+  `onmessageerror`, result validation, stage-aware stacks, and structured logs.
+- Reused FFT workspaces and precomputed transform tables, collapsed five band
+  scans into one, and throttled Worker progress to percentage changes.
+- Raised offline analysis to adaptive 4096/8192 FFT, 384/512 frequency bins,
+  and 2400-4800 frame ceilings within explicit output-memory budgets.
+- Raised waveform peaks and live analyzer FFT size to 8192, and replaced
+  millions of per-cell Canvas calls with a single spectrum raster draw.
+- Added a spectrogram-sized waiting state and copyable failure UI while keeping
+  waveform, playback, and file replacement usable.
 - Added `Mix`, `L / R`, and `M / S` spectrogram views with shared seek behavior.
 - Added pure DSP tests for FFT and channel separation behavior.
 - Added a real-time frequency-response curve with combined stereo energy and
@@ -78,6 +90,6 @@ workflow, and adds:
 
 ## Next Milestone
 
-Finish the product UI and release-hardening milestones: full light/dark and
-responsive browser matrix, README migration, final Cloudflare and requirement
-audit, and release documentation.
+Collect production-device timings before considering a Rust/WASM backend. A
+WASM implementation should be accepted only if end-to-end analysis improves
+materially after its extra input copy and module startup cost are included.

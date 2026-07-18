@@ -35,12 +35,29 @@ new `AudioBufferSourceNode`, because source nodes cannot be restarted.
 ### `src/lib/audio/analysis.worker.ts`
 
 Runs the offline FFT pipeline. It transfers typed-array results back to the
-main thread and reports progress. It never reads DOM or Svelte state.
+main thread and reports percentage-throttled progress. It acknowledges the
+selected plan and returns serialized name, message, stack, stage, and context
+when calculation or result transfer fails. It never reads DOM or Svelte state.
+
+### `src/lib/audio/analysis.ts`
+
+Owns Worker startup, request transfer, cancellation, result validation, and
+startup/stall watchdogs. It consolidates Worker errors, browser `ErrorEvent`
+locations, input metadata, device capability hints, the selected plan, elapsed
+time, and user agent into `AudioAnalysisError` diagnostics.
+
+### `src/lib/audio/analysis-plan.ts`
+
+Chooses resolution from sample rate, logical cores, and optional device-memory
+hints. The maximum output is bounded independently from source duration, while
+the plan reports both output and estimated Worker memory before analysis starts.
 
 ### `src/lib/audio/dsp.ts`
 
 Contains pure FFT, windowing, frequency mapping, and Mid/Side math that can run
-in tests and in the Worker.
+in tests and in the Worker. Transform tables and typed workspaces are allocated
+once per analysis. Each log-frequency band derives Mix, L/R, and M/S energy in
+one pass.
 
 ### `src/lib/components/*`
 
@@ -62,6 +79,19 @@ For every selected time frame:
 
 Frame count and frequency-bin count are bounded independently of file duration,
 which keeps Worker output predictable for long files.
+
+## Resolution Policy
+
+- 44.1/48 kHz sources use a 4096-point offline FFT.
+- Higher sample rates use an 8192-point offline FFT.
+- Constrained devices use 384 bins and at most 2400 frames.
+- Capable devices use 512 bins and at most 4800 frames.
+- Five output channels stay within a 24-52 MiB output budget.
+- Waveform peaks and live analyzer FFT size are both 8192.
+
+Rust/WASM is deferred until production benchmarks show a material end-to-end
+gain. The current Worker avoids a second copy into WASM linear memory and keeps
+JavaScript stacks directly visible in diagnostics.
 
 ## Real-Time Audio Graph
 
