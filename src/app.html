@@ -4,7 +4,49 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#111414" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Audio Visualizer" />
     <link rel="icon" type="image/svg+xml" sizes="any" href="/favicon.svg?v=2" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Audio Visualizer",
+        "url": "https://audio-visualizer.pwp.sh/",
+        "description": "Analyze audio locally with waveforms, high-resolution spectrograms, stereo phase metering, Mid/Side auditioning, filters, and synchronized A/B comparison.",
+        "applicationCategory": "MultimediaApplication",
+        "applicationSubCategory": "Audio analysis software",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires a modern browser with Web Audio API support.",
+        "isAccessibleForFree": true,
+        "inLanguage": "en",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "featureList": [
+          "Waveform overview with dBFS scale",
+          "High-resolution spectrogram analysis",
+          "Synchronized A/B audio comparison",
+          "Stereo, Left, Right, Mid, and Side auditioning",
+          "High-pass and low-pass audition filters",
+          "Stereo phase and frequency response metering",
+          "Private local audio processing"
+        ],
+        "creator": {
+          "@type": "Organization",
+          "name": "Alkinum",
+          "url": "https://github.com/alkinum"
+        },
+        "sameAs": ["https://github.com/alkinum/audio-visualizer"]
+      }
+    </script>
     <script>
       const savedTheme = localStorage.getItem('audio-visualizer-theme');
       const resolvedTheme = savedTheme ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');

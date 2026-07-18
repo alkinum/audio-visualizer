@@ -1,6 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { AlertTriangle, AudioWaveform, Check, CodeXml, Copy, Moon, Pause, Play, Sun } from '@lucide/svelte';
+  import {
+    AlertTriangle,
+    AudioWaveform,
+    Check,
+    CodeXml,
+    Copy,
+    Moon,
+    Pause,
+    Play,
+    RefreshCw,
+    Repeat2,
+    Sun,
+    X,
+  } from '@lucide/svelte';
   import AnalysisPending from '$lib/components/AnalysisPending.svelte';
   import FileDropzone from '$lib/components/FileDropzone.svelte';
   import LiveRack from '$lib/components/LiveRack.svelte';
@@ -33,12 +46,20 @@
     duration: 0,
   };
 
+  const SITE_URL = 'https://audio-visualizer.pwp.sh/';
+  const SEO_TITLE = 'Audio Visualizer | Waveform, Spectrogram & A/B Analyzer';
+  const SEO_DESCRIPTION =
+    'Analyze audio locally with waveforms, high-resolution spectrograms, stereo phase metering, Mid/Side auditioning, filters, and synchronized A/B comparison.';
+
   let decoded = $state<DecodedAudio | null>(null);
   let selectedFile = $state<File | null>(null);
   let comparisonDecoded = $state<DecodedAudio | null>(null);
   let comparisonFile = $state<File | null>(null);
   let comparisonBusy = $state(false);
   let comparisonError = $state('');
+  let comparisonAnalysisProgress = $state<AnalysisProgress | null>(null);
+  let comparisonAnalysisTask = $state<AnalysisTask | null>(null);
+  let comparisonAnalysisFailure = $state<AudioAnalysisError | null>(null);
   let activeSlot = $state<ComparisonSlot>('a');
   let auditionChannel = $state<AuditionChannel>('stereo');
   let auditionFilter = $state<AuditionFilterMode>('off');
@@ -61,6 +82,19 @@
   let decodeGeneration = 0;
   let comparisonGeneration = 0;
   let pageDragging = $state(false);
+  let loopEnabled = $state(false);
+  let loopStart = $state(0);
+  let loopEnd = $state(0);
+  let updateAvailable = $state(false);
+  let waitingServiceWorker: ServiceWorker | null = null;
+  let serviceWorkerRegistration: ServiceWorkerRegistration | null = null;
+  let reloadOnServiceWorkerChange = false;
+  const loopMaximum = $derived.by(() => {
+    if (!decoded) return 0;
+    return comparisonDecoded
+      ? Math.min(decoded.buffer.duration, comparisonDecoded.buffer.duration)
+      : decoded.buffer.duration;
+  });
 
   onMount(() => {
     const mediaQuery = matchMedia('(prefers-color-scheme: dark)');
@@ -129,7 +163,42 @@
     window.addEventListener('dragleave', handleWindowDragLeave);
     window.addEventListener('drop', handleWindowDrop);
 
+    let disposed = false;
+    let updateInterval = 0;
+    let observedInstallingWorker: ServiceWorker | null = null;
+    const announceWaitingWorker = (worker: ServiceWorker | null) => {
+      if (!worker || !navigator.serviceWorker.controller) return;
+      waitingServiceWorker = worker;
+      updateAvailable = true;
+    };
+    const handleInstallingStateChange = () => {
+      if (observedInstallingWorker?.state === 'installed') {
+        announceWaitingWorker(serviceWorkerRegistration?.waiting ?? observedInstallingWorker);
+      }
+    };
+    const handleUpdateFound = () => {
+      observedInstallingWorker?.removeEventListener('statechange', handleInstallingStateChange);
+      observedInstallingWorker = serviceWorkerRegistration?.installing ?? null;
+      observedInstallingWorker?.addEventListener('statechange', handleInstallingStateChange);
+    };
+    const handleControllerChange = () => {
+      if (!reloadOnServiceWorkerChange) return;
+      reloadOnServiceWorkerChange = false;
+      window.location.reload();
+    };
+    navigator.serviceWorker?.addEventListener('controllerchange', handleControllerChange);
+    if ('serviceWorker' in navigator) {
+      void navigator.serviceWorker.ready.then((registration) => {
+        if (disposed) return;
+        serviceWorkerRegistration = registration;
+        announceWaitingWorker(registration.waiting);
+        registration.addEventListener('updatefound', handleUpdateFound);
+        updateInterval = window.setInterval(() => void registration.update(), 60 * 60 * 1000);
+      });
+    }
+
     return () => {
+      disposed = true;
       cancelAnimationFrame(animationFrame);
       mediaQuery.removeEventListener('change', handleSystemTheme);
       window.removeEventListener('keydown', handleKeyboard);
@@ -138,6 +207,11 @@
       window.removeEventListener('dragleave', handleWindowDragLeave);
       window.removeEventListener('drop', handleWindowDrop);
       analysisTask?.cancel();
+      comparisonAnalysisTask?.cancel();
+      serviceWorkerRegistration?.removeEventListener('updatefound', handleUpdateFound);
+      observedInstallingWorker?.removeEventListener('statechange', handleInstallingStateChange);
+      navigator.serviceWorker?.removeEventListener('controllerchange', handleControllerChange);
+      if (updateInterval) window.clearInterval(updateInterval);
       void engine?.destroy();
     };
   });
@@ -176,6 +250,9 @@
     viewEnd = 0;
     frequencyMin = 0;
     frequencyMax = 0;
+    loopEnabled = false;
+    loopStart = 0;
+    loopEnd = 0;
     playback = { ...EMPTY_PLAYBACK };
     await engine?.destroy();
     engine = null;
@@ -189,6 +266,7 @@
       decoded = nextAudio;
       viewEnd = nextAudio.buffer.duration;
       frequencyMax = nextAudio.buffer.sampleRate / 2;
+      loopEnd = defaultLoopEnd(sharedDuration(nextAudio.buffer.duration));
       engine = new PlaybackEngine(nextAudio.buffer, () => {
         if (engine) playback = engine.snapshot;
       }, comparisonDecoded?.buffer ?? null);
@@ -196,6 +274,7 @@
       engine.setAuditionFilter('highpass', highpassFrequency);
       engine.setAuditionFilter('lowpass', lowpassFrequency);
       engine.setAuditionFilter(auditionFilter, currentFilterFrequency());
+      engine.setLoop(false, loopStart, loopEnd);
       playback = engine.snapshot;
       busy = false;
 
@@ -248,21 +327,61 @@
     const generation = ++comparisonGeneration;
     comparisonBusy = true;
     comparisonError = '';
+    comparisonAnalysisTask?.cancel();
+    comparisonAnalysisTask = null;
+    comparisonAnalysisProgress = null;
+    comparisonAnalysisFailure = null;
     comparisonFile = file;
     comparisonDecoded = null;
     switchComparison('a');
-    engine?.setComparisonBuffer(null);
+    playback = engine?.setComparisonBuffer(null) ?? playback;
+    reconcileLoopBounds();
+    let decodeComplete = false;
 
     try {
       const nextAudio = await decodeAudioFile(file);
       if (generation !== comparisonGeneration) return;
+      decodeComplete = true;
       comparisonDecoded = nextAudio;
       playback = engine?.setComparisonBuffer(nextAudio.buffer) ?? playback;
+      reconcileLoopBounds();
+      comparisonBusy = false;
+
+      const task = analyzeAudioBuffer(nextAudio.buffer, (progress) => {
+        if (generation === comparisonGeneration) comparisonAnalysisProgress = progress;
+      }, {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
+      });
+      comparisonAnalysisTask = task;
+      const analysis = await task.promise;
+      if (generation !== comparisonGeneration) return;
+      comparisonDecoded = { ...nextAudio, analysis };
+      comparisonAnalysisProgress = {
+        stage: 'finalizing',
+        progress: 100,
+        frame: analysis.frameCount,
+        totalFrames: analysis.frameCount,
+        elapsedMs: performance.now() - task.startedAt,
+      };
+      comparisonAnalysisTask = null;
     } catch (cause) {
       if (generation !== comparisonGeneration) return;
-      console.error('Comparison audio decode failed', cause);
-      comparisonError = 'B could not be decoded by the browser.';
-      comparisonFile = null;
+      if (decodeComplete) {
+        if (cause instanceof AudioAnalysisError) {
+          comparisonAnalysisFailure = cause;
+        } else {
+          console.error('Comparison spectrum analysis failed', cause);
+          comparisonError = 'B spectrum analysis failed. Playback and waveform remain available.';
+        }
+        comparisonAnalysisTask = null;
+      } else {
+        console.error('Comparison audio decode failed', cause);
+        comparisonError = 'B could not be decoded by the browser.';
+        comparisonFile = null;
+      }
     } finally {
       if (generation === comparisonGeneration) comparisonBusy = false;
     }
@@ -290,10 +409,52 @@
     playback = await engine.seek(Math.max(0, Math.min(playback.duration, time)));
   }
 
+  function changeLoopEnabled(enabled: boolean): void {
+    if (loopMaximum <= 0) return;
+    if (loopEnd <= loopStart) loopEnd = defaultLoopEnd(loopMaximum);
+    loopEnabled = enabled;
+    playback = engine?.setLoop(loopEnabled, loopStart, loopEnd) ?? playback;
+  }
+
+  function changeLoopRange(start: number, end: number): void {
+    const maximum = loopMaximum;
+    if (maximum <= 0) return;
+    const minimumSpan = Math.min(maximum, Math.max(0.02, maximum / 10_000));
+    loopStart = Math.max(0, Math.min(maximum - minimumSpan, start));
+    loopEnd = Math.max(loopStart + minimumSpan, Math.min(maximum, end));
+    playback = engine?.setLoop(loopEnabled, loopStart, loopEnd) ?? playback;
+  }
+
+  function reconcileLoopBounds(): void {
+    const maximum = sharedDuration();
+    if (maximum <= 0) return;
+    const minimumSpan = Math.min(maximum, Math.max(0.02, maximum / 10_000));
+    loopStart = Math.max(0, Math.min(maximum - minimumSpan, loopStart));
+    loopEnd = Math.max(loopStart + minimumSpan, Math.min(maximum, loopEnd || defaultLoopEnd(maximum)));
+    playback = engine?.setLoop(loopEnabled, loopStart, loopEnd) ?? playback;
+  }
+
+  function sharedDuration(primaryDuration = decoded?.buffer.duration ?? 0): number {
+    return comparisonDecoded
+      ? Math.min(primaryDuration, comparisonDecoded.buffer.duration)
+      : primaryDuration;
+  }
+
+  function defaultLoopEnd(maximum: number): number {
+    return Math.min(maximum, Math.max(Math.min(maximum, 1), Math.min(10, maximum * 0.1)));
+  }
+
   function switchComparison(slot: ComparisonSlot): void {
     if (slot === 'b' && !comparisonDecoded) return;
     activeSlot = slot;
     playback = engine?.setActiveSlot(slot) ?? playback;
+  }
+
+  function activateUpdate(): void {
+    const worker = waitingServiceWorker ?? serviceWorkerRegistration?.waiting ?? null;
+    if (!worker) return;
+    reloadOnServiceWorkerChange = true;
+    worker.postMessage({ type: 'SKIP_WAITING' });
   }
 
   function changeAuditionChannel(channel: AuditionChannel): void {
@@ -388,11 +549,31 @@
 </script>
 
 <svelte:head>
-  <title>Audio Visualizer</title>
-  <meta
-    name="description"
-    content="Local waveform and spectrum analysis for stereo audio files."
-  />
+  <title>{SEO_TITLE}</title>
+  <meta name="description" content={SEO_DESCRIPTION} />
+  <meta name="application-name" content="Audio Visualizer" />
+  <meta name="author" content="Alkinum" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <link rel="canonical" href={SITE_URL} />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Audio Visualizer" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:url" content={SITE_URL} />
+  <meta property="og:title" content={SEO_TITLE} />
+  <meta property="og:description" content={SEO_DESCRIPTION} />
+  <meta property="og:image" content={`${SITE_URL}og-image.png`} />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Audio Visualizer waveform and spectrogram workspace" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={SEO_TITLE} />
+  <meta name="twitter:description" content={SEO_DESCRIPTION} />
+  <meta name="twitter:image" content={`${SITE_URL}og-image.png`} />
+  <meta name="twitter:image:alt" content="Audio Visualizer waveform and spectrogram workspace" />
+
 </svelte:head>
 
 <div class="app-shell">
@@ -441,7 +622,7 @@
             <AudioWaveform size={30} strokeWidth={1.45} />
           </span>
           <h1 id="open-file-title">Audio Visualizer</h1>
-          <p>Load a file to begin a local analysis session.</p>
+          <p>Analyze waveforms, spectrograms, stereo detail, and A/B references locally in your browser.</p>
         </div>
         <FileDropzone
           onSelect={handleFile}
@@ -537,6 +718,19 @@
             {:else}
               <Play size={18} fill="currentColor" strokeWidth={1.6} />
             {/if}
+          </button>
+          <button
+            class:active={loopEnabled}
+            class="transport-loop"
+            type="button"
+            onclick={() => changeLoopEnabled(!loopEnabled)}
+            aria-pressed={loopEnabled}
+            aria-label={loopEnabled ? 'Disable loop playback' : 'Enable loop playback'}
+            title={loopEnabled
+              ? `Loop ${formatTime(loopStart, true)} - ${formatTime(loopEnd, true)}`
+              : 'Enable loop playback'}
+          >
+            <Repeat2 size={16} strokeWidth={1.8} />
           </button>
           <div class="segmented ab-switch" aria-label="Listening source">
             <button
@@ -655,23 +849,39 @@
 
         <Waveform
           data={decoded.waveform}
+          comparisonData={comparisonDecoded?.waveform ?? null}
           duration={playback.duration}
+          comparisonDuration={comparisonDecoded?.buffer.duration ?? 0}
           currentTime={playback.currentTime}
           {viewStart}
           {viewEnd}
+          {loopEnabled}
+          {loopStart}
+          {loopEnd}
+          {loopMaximum}
           {theme}
           onSeek={(time) => void seek(time)}
           onViewChange={changeTimeView}
+          onLoopChange={changeLoopRange}
+          onLoopToggle={changeLoopEnabled}
         />
         {#if decoded.analysis}
           <Spectrogram
             analysis={decoded.analysis}
+            comparisonAnalysis={comparisonDecoded?.analysis ?? null}
+            comparisonDuration={comparisonDecoded?.buffer.duration ?? 0}
+            comparisonPending={Boolean(comparisonDecoded && comparisonAnalysisTask)}
+            comparisonProgress={comparisonAnalysisProgress}
+            comparisonError={comparisonAnalysisFailure?.message ?? comparisonError}
             duration={playback.duration}
             currentTime={playback.currentTime}
             {viewStart}
             {viewEnd}
             {frequencyMin}
             {frequencyMax}
+            {loopEnabled}
+            {loopStart}
+            {loopEnd}
             {theme}
             onSeek={(time) => void seek(time)}
             onTimeViewChange={changeTimeView}
@@ -751,4 +961,26 @@
       {/if}
     </div>
   </div>
+{/if}
+
+{#if updateAvailable}
+  <aside class="update-prompt" aria-live="polite" aria-label="Application update available">
+    <div>
+      <strong>Update ready</strong>
+      <span>Refresh when you are ready to use the latest version.</span>
+    </div>
+    <button class="update-action" type="button" onclick={activateUpdate}>
+      <RefreshCw size={15} strokeWidth={1.8} aria-hidden="true" />
+      Refresh
+    </button>
+    <button
+      class="update-dismiss"
+      type="button"
+      onclick={() => (updateAvailable = false)}
+      aria-label="Dismiss update notice"
+      title="Dismiss"
+    >
+      <X size={16} strokeWidth={1.8} />
+    </button>
+  </aside>
 {/if}

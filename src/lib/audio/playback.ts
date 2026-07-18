@@ -32,6 +32,9 @@ export class PlaybackEngine {
   private offset = 0;
   private startedAt = 0;
   private playing = false;
+  private loopEnabled = false;
+  private loopStart = 0;
+  private loopEnd = 0;
 
   constructor(
     private readonly buffer: AudioBuffer,
@@ -67,7 +70,11 @@ export class PlaybackEngine {
 
   get currentTime(): number {
     if (!this.playing || !this.context) return this.offset;
-    return Math.min(this.buffer.duration, this.offset + this.context.currentTime - this.startedAt);
+    const rawTime = this.offset + this.context.currentTime - this.startedAt;
+    if (this.loopEnabled && this.loopEnd > this.loopStart && rawTime >= this.loopEnd) {
+      return this.loopStart + ((rawTime - this.loopStart) % (this.loopEnd - this.loopStart));
+    }
+    return Math.min(this.buffer.duration, rawTime);
   }
 
   async toggle(): Promise<PlaybackSnapshot> {
@@ -107,6 +114,9 @@ export class PlaybackEngine {
     this.playing = false;
     this.stopSources();
     this.offset = Math.max(0, Math.min(time, this.buffer.duration));
+    if (this.loopEnabled && (this.offset < this.loopStart || this.offset >= this.loopEnd)) {
+      this.offset = this.loopStart;
+    }
 
     if (wasPlaying) await this.play();
     return this.snapshot;
@@ -121,14 +131,59 @@ export class PlaybackEngine {
 
   setComparisonBuffer(buffer: AudioBuffer | null): PlaybackSnapshot {
     const currentTime = this.currentTime;
-    this.stopSource('b');
+    this.stopSources();
     this.comparisonBuffer = buffer;
+    this.clampLoopRange();
+    this.offset = this.loopEnabled && (currentTime < this.loopStart || currentTime >= this.loopEnd)
+      ? this.loopStart
+      : currentTime;
 
     if (!buffer && this.activeComparisonSlot === 'b') {
       this.activeComparisonSlot = 'a';
       this.applyActiveGains(false);
-    } else if (buffer && this.playing && currentTime < buffer.duration) {
-      this.sources.b = this.startSource('b', buffer, currentTime);
+    }
+
+    if (this.playing && this.context) {
+      this.startedAt = this.context.currentTime;
+      this.sources.a = this.startSource('a', this.buffer, this.offset);
+      if (buffer && this.offset < buffer.duration) {
+        this.sources.b = this.startSource('b', buffer, this.offset);
+      }
+    }
+
+    return this.snapshot;
+  }
+
+  setLoop(enabled: boolean, start: number, end: number): PlaybackSnapshot {
+    const currentTime = this.currentTime;
+    this.loopStart = start;
+    this.loopEnd = end;
+    this.clampLoopRange();
+    this.loopEnabled = enabled && this.loopEnd > this.loopStart;
+    const mustJump = this.loopEnabled && (currentTime < this.loopStart || currentTime >= this.loopEnd);
+    this.offset = mustJump ? this.loopStart : currentTime;
+
+    if (this.playing && this.context) {
+      this.startedAt = this.context.currentTime;
+      if (mustJump) {
+        this.stopSources();
+        this.sources.a = this.startSource('a', this.buffer, this.offset);
+        if (this.comparisonBuffer && this.offset < this.comparisonBuffer.duration) {
+          this.sources.b = this.startSource('b', this.comparisonBuffer, this.offset);
+        }
+      } else {
+        for (const source of Object.values(this.sources)) {
+          if (!source) continue;
+          source.loop = this.loopEnabled;
+          if (this.loopEnabled) {
+            source.loopStart = this.loopStart;
+            source.loopEnd = this.loopEnd;
+          }
+        }
+        if (this.comparisonBuffer && !this.sources.b && this.offset < this.comparisonBuffer.duration) {
+          this.sources.b = this.startSource('b', this.comparisonBuffer, this.offset);
+        }
+      }
     }
 
     return this.snapshot;
@@ -174,11 +229,16 @@ export class PlaybackEngine {
     const context = this.context!;
     const source = context.createBufferSource();
     source.buffer = buffer;
+    source.loop = this.loopEnabled;
+    if (this.loopEnabled) {
+      source.loopStart = this.loopStart;
+      source.loopEnd = this.loopEnd;
+    }
     source.connect(slot === 'a' ? this.gainA! : this.gainB!);
     source.onended = () => {
       if (this.sources[slot] !== source) return;
       this.sources[slot] = null;
-      if (slot === 'a' && this.playing) this.finishPlayback();
+      if (slot === 'a' && this.playing && !this.loopEnabled) this.finishPlayback();
     };
     source.start(0, offset);
     return source;
@@ -203,6 +263,16 @@ export class PlaybackEngine {
     source.stop();
     source.disconnect();
     this.sources[slot] = null;
+  }
+
+  private clampLoopRange(): void {
+    const maximum = this.comparisonBuffer
+      ? Math.min(this.buffer.duration, this.comparisonBuffer.duration)
+      : this.buffer.duration;
+    const minimumSpan = Math.min(maximum, 0.02);
+    const start = Math.max(0, Math.min(maximum - minimumSpan, this.loopStart));
+    this.loopStart = start;
+    this.loopEnd = Math.max(start + minimumSpan, Math.min(maximum, this.loopEnd));
   }
 
   private ensureGraph(): AudioContext {
