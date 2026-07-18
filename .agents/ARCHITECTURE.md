@@ -56,7 +56,7 @@ the plan reports both output and estimated Worker memory before analysis starts.
 
 Contains pure FFT, windowing, frequency mapping, and Mid/Side math that can run
 in tests and in the Worker. Transform tables and typed workspaces are allocated
-once per analysis. Each log-frequency band derives Mix, L/R, and M/S energy in
+once per analysis. Each linear-frequency band derives Mix, L/R, and M/S energy in
 one pass.
 
 ### `src/lib/components/*`
@@ -79,7 +79,7 @@ For every selected time frame:
 3. Derive Mid as `(L + R) / sqrt(2)` and Side as `(L - R) / sqrt(2)` in the
    complex frequency domain.
 4. Derive combined stereo energy as the RMS of L and R magnitudes.
-5. Aggregate FFT bins into a fixed logarithmic frequency grid.
+5. Aggregate FFT bins into a fixed linear frequency grid from DC to Nyquist.
 6. Convert magnitudes to dBFS and clamp to the configured display floor.
 
 Frame count and frequency-bin count are bounded independently of file duration,

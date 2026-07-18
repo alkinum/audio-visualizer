@@ -9,7 +9,7 @@ storage binding is required.
 - drag and drop or file-picker loading for common browser-decodable audio
 - waveform overview with combined and split L/R views
 - keyboard transport: Space toggles playback, arrow keys seek five seconds
-- adaptive high-resolution log-frequency spectrogram from 20 Hz to source Nyquist
+- adaptive high-resolution linear-frequency spectrogram from 0 Hz to source Nyquist
 - Combined stereo, Left / Right, and Mid / Side spectrogram views
 - stable long-analysis status with plan, elapsed time, and progress details
 - structured Worker diagnostics with copyable failure context

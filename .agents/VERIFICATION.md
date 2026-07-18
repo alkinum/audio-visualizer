@@ -11,16 +11,17 @@ npm run build
 
 ## DSP Evidence
 
-- sine-wave FFT peak lands in the expected log-frequency region
+- sine-wave FFT peak lands in the expected FFT region
 - identical L/R input produces Mid energy and a suppressed Side result
 - polarity-inverted L/R input produces Side energy and a suppressed Mid result
 - sample-rate-specific Nyquist values cap labels and bins correctly
-- every logarithmic band remains non-empty through Nyquist
+- every linear band remains non-empty from DC through Nyquist
+- a DC signal lands in the bottom spectrum band
 - optimized FFT output matches a direct Fourier transform
 - adaptive plans respect constrained and maximum output-memory budgets
 - Error and non-Error failures retain structured diagnostic context
 
-Automated evidence: `npm run test` passes 16 DSP, planning, diagnostics,
+Automated evidence: `npm run test` passes 17 DSP, planning, diagnostics,
 palette, and metering tests.
 
 ## Browser Flows
@@ -55,7 +56,7 @@ Verified on 2026-07-18 with generated 48 kHz stereo WAV fixtures:
   an isolated garbage-collection sample reached 50 ms
 - desktop and 390 px mobile spectrum sections reported a 1 px bottom gap,
   exactly matching the module divider, with no horizontal overflow
-- full-page and mobile screenshots confirmed right-side 20 Hz-to-Nyquist
+- full-page and mobile screenshots confirmed right-side 0 Hz-to-Nyquist
   labels, unobscured L/R/M/S tags, and the Audition-style intensity palette
 
 ## Visual Matrix

@@ -37,7 +37,7 @@ workflow, and adds:
 
 - `npm run check`: passed
 - `npm run lint`: passed
-- `npm run test`: passed, 16 tests
+- `npm run test`: passed, 17 tests
 - `npm run build`: passed with Cloudflare adapter output
 - `npx wrangler deploy --dry-run`: passed
 - `npx wrangler types --check`: passed
@@ -67,7 +67,7 @@ workflow, and adds:
   Space and arrow keyboard controls, and waveform pointer seeking.
 - Added semantic light and dark tokens with system fallback and persistence.
 - Added Cloudflare dry-run evidence without external upload or storage.
-- Added a typed FFT Worker with bounded frames, log-frequency bins, progress,
+- Added a typed FFT Worker with bounded frames, linear-frequency bins, progress,
   cancellation, and Combined, L/R, Mid, and Side outputs.
 - Added Worker readiness, plan acknowledgement, startup/stall watchdogs,
   `onmessageerror`, result validation, stage-aware stacks, and structured logs.
