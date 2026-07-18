@@ -5,6 +5,10 @@
   import { panAxisRange, zoomAxisRange } from '$lib/audio/chart-viewport';
   import { observeDevicePixelRatio, prepareCanvas } from '$lib/canvas-resolution';
   import { dbToAuditionPaletteIndex, makeAuditionSpectrumPalette } from '$lib/audio/spectrogram-palette';
+  import {
+    layoutSpectrumFrequencyTicks,
+    SPECTRUM_FREQUENCY_LABEL_HEIGHT,
+  } from '$lib/audio/spectrum-frequency-axis';
   import { frequencyToSpectrumRatio, spectrumRatioToFrequency } from '$lib/audio/spectrum-frequency-scale';
   import type {
     AnalysisChannel,
@@ -333,27 +337,25 @@
   ): void {
     context.save();
     context.lineWidth = 1;
-    context.font = '9px SFMono-Regular, Consolas, monospace';
+    context.font = `${SPECTRUM_FREQUENCY_LABEL_HEIGHT}px SFMono-Regular, Consolas, monospace`;
     context.textAlign = 'right';
     context.shadowColor = 'rgb(0 0 0 / 0.82)';
     context.shadowBlur = 3;
 
-    frequencyTicks().forEach((frequency) => {
-      const ratio = visibleFrequencyRatio(frequency);
-      const rawY = top + panelHeight - ratio * panelHeight;
-      const lineY = Math.max(top + 0.5, Math.min(top + panelHeight - 0.5, rawY));
+    const ticks = layoutSpectrumFrequencyTicks(frequencyTicks(), visibleFrequencyRatio, top, panelHeight);
+    ticks.forEach((tick) => {
       context.shadowBlur = 0;
-      context.strokeStyle = ratio === 0 || ratio === 1 ? 'rgb(255 255 255 / 0.2)' : 'rgb(255 255 255 / 0.1)';
+      context.strokeStyle = tick.ratio === 0 || tick.ratio === 1 ? 'rgb(255 255 255 / 0.2)' : 'rgb(255 255 255 / 0.1)';
       context.beginPath();
-      context.moveTo(source.left, lineY);
-      context.lineTo(source.left + source.width, lineY);
+      context.moveTo(source.left, tick.lineY);
+      context.lineTo(source.left + source.width, tick.lineY);
       context.stroke();
 
+      if (!tick.showLabel) return;
       context.shadowBlur = 3;
       context.fillStyle = 'rgb(229 232 241 / 0.68)';
-      context.textBaseline = ratio > 0.98 ? 'top' : ratio < 0.02 ? 'bottom' : 'middle';
-      const labelY = ratio > 0.98 ? top + 7 : ratio < 0.02 ? top + panelHeight - 7 : rawY;
-      context.fillText(formatFrequencyLabel(frequency), source.left + source.width - 8, labelY);
+      context.textBaseline = tick.labelBaseline;
+      context.fillText(formatFrequencyLabel(tick.frequency), source.left + source.width - 8, tick.labelY);
     });
     context.restore();
   }
