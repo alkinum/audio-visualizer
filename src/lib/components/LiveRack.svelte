@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { observeDevicePixelRatio, prepareCanvas } from '$lib/canvas-resolution';
   import { calculateCorrelation, linearRmsDb } from '$lib/audio/metering';
   import type { AnalyzerBank, ResolvedTheme } from '$lib/audio/types';
 
@@ -17,11 +18,10 @@
   let phaseCanvas: HTMLCanvasElement;
   let responseWidth = $state(0);
   let phaseWidth = $state(0);
+  let dpr = $state(1);
   let phaseCorrelation = $state(0);
   let hasSignal = $state(false);
   const displayCorrelation = $derived(Math.abs(phaseCorrelation) < 0.005 ? 0 : phaseCorrelation);
-  const responseHeight = 248;
-  const phaseHeight = 248;
   let cachedLeftAnalyzer: AnalyserNode | null = null;
   let cachedRightAnalyzer: AnalyserNode | null = null;
   let cachedMidAnalyzer: AnalyserNode | null = null;
@@ -34,13 +34,14 @@
 
   onMount(() => {
     const responseObserver = new ResizeObserver(([entry]) => {
-      responseWidth = Math.round(entry.contentRect.width);
+      responseWidth = entry.contentRect.width;
     });
     const phaseObserver = new ResizeObserver(([entry]) => {
-      phaseWidth = Math.round(entry.contentRect.width);
+      phaseWidth = entry.contentRect.width;
     });
     responseObserver.observe(responseContainer);
     phaseObserver.observe(phaseContainer);
+    const stopDprObserver = observeDevicePixelRatio((ratio) => (dpr = ratio));
 
     let animationFrame = 0;
     const update = () => {
@@ -63,11 +64,12 @@
       cancelAnimationFrame(animationFrame);
       responseObserver.disconnect();
       phaseObserver.disconnect();
+      stopDprObserver();
     };
   });
 
   $effect(() => {
-    const redraw = { theme, responseWidth, phaseWidth, analyzers, isPlaying, sampleRate };
+    const redraw = { theme, responseWidth, phaseWidth, dpr, analyzers, isPlaying, sampleRate };
     if (redraw.theme && redraw.responseWidth >= 0 && redraw.phaseWidth >= 0 && redraw.sampleRate > 0) {
       drawResponse();
       drawPhase();
@@ -95,14 +97,12 @@
 
   function drawResponse(): void {
     if (!responseCanvas || !responseContainer || responseWidth <= 0) return;
-    const dpr = window.devicePixelRatio || 1;
-    const targetWidth = Math.round(responseWidth * dpr);
-    const targetHeight = Math.round(responseHeight * dpr);
-    if (responseCanvas.width !== targetWidth) responseCanvas.width = targetWidth;
-    if (responseCanvas.height !== targetHeight) responseCanvas.height = targetHeight;
-    const context = responseCanvas.getContext('2d');
+    const bounds = responseCanvas.getBoundingClientRect();
+    const cssWidth = bounds.width;
+    const cssHeight = bounds.height;
+    if (cssWidth <= 0 || cssHeight <= 0) return;
+    const context = prepareCanvas(responseCanvas, cssWidth, cssHeight, dpr);
     if (!context) return;
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
     const styles = getComputedStyle(responseContainer);
     const background = styles.getPropertyValue('--surface-muted').trim();
     const grid = styles.getPropertyValue('--chart-grid').trim();
@@ -110,14 +110,14 @@
     const accent = styles.getPropertyValue('--chart-primary').trim();
     const secondary = styles.getPropertyValue('--chart-secondary').trim();
     context.fillStyle = background;
-    context.fillRect(0, 0, responseWidth, responseHeight);
+    context.fillRect(0, 0, cssWidth, cssHeight);
 
     const left = 36;
     const right = 12;
     const top = 14;
     const bottom = 28;
-    const plotWidth = responseWidth - left - right;
-    const plotHeight = responseHeight - top - bottom;
+    const plotWidth = cssWidth - left - right;
+    const plotHeight = cssHeight - top - bottom;
     const minDb = -96;
     const maxDb = 0;
 
@@ -214,25 +214,23 @@
 
   function drawPhase(): void {
     if (!phaseCanvas || !phaseContainer || phaseWidth <= 0) return;
-    const dpr = window.devicePixelRatio || 1;
-    const targetWidth = Math.round(phaseWidth * dpr);
-    const targetHeight = Math.round(phaseHeight * dpr);
-    if (phaseCanvas.width !== targetWidth) phaseCanvas.width = targetWidth;
-    if (phaseCanvas.height !== targetHeight) phaseCanvas.height = targetHeight;
-    const context = phaseCanvas.getContext('2d');
+    const bounds = phaseCanvas.getBoundingClientRect();
+    const cssWidth = bounds.width;
+    const cssHeight = bounds.height;
+    if (cssWidth <= 0 || cssHeight <= 0) return;
+    const context = prepareCanvas(phaseCanvas, cssWidth, cssHeight, dpr);
     if (!context) return;
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
     const styles = getComputedStyle(phaseContainer);
     const background = styles.getPropertyValue('--surface-muted').trim();
     const grid = styles.getPropertyValue('--chart-grid').trim();
     const text = styles.getPropertyValue('--text-faint').trim();
     const accent = styles.getPropertyValue('--chart-primary').trim();
     context.fillStyle = background;
-    context.fillRect(0, 0, phaseWidth, phaseHeight);
+    context.fillRect(0, 0, cssWidth, cssHeight);
 
-    const centerX = phaseWidth / 2;
-    const centerY = phaseHeight / 2;
-    const radius = Math.min(phaseWidth * 0.36, phaseHeight * 0.36);
+    const centerX = cssWidth / 2;
+    const centerY = cssHeight / 2;
+    const radius = Math.min(cssWidth * 0.36, cssHeight * 0.36);
     context.strokeStyle = grid;
     context.lineWidth = 1;
     context.beginPath();
@@ -264,7 +262,7 @@
 
     context.fillStyle = accent;
     context.globalAlpha = 0.7;
-    const sampleStep = Math.max(1, Math.floor(leftTime.length / Math.max(512, phaseWidth * 2)));
+    const sampleStep = Math.max(1, Math.floor(leftTime.length / Math.max(512, cssWidth * 2)));
     for (let index = 0; index < leftTime.length; index += sampleStep) {
       const left = leftTime[index];
       const right = rightTime[index];

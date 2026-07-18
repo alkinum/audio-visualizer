@@ -6,10 +6,12 @@ storage binding is required.
 
 ## Current Features
 
-- drag and drop or file-picker loading for common browser-decodable audio
-- waveform overview with combined and split L/R views
+- full-page A/B-aware drag and drop plus one-or-two-file initial selection for common browser-decodable audio
+- DPR-native waveform overview with dBFS references, combined/split L/R views, and a draggable time viewport
 - keyboard transport: Space toggles playback, arrow keys seek five seconds
-- adaptive high-resolution perceptual-log spectrogram anchored from 0 Hz to source Nyquist
+- synchronized A/B playback with instant listening-source switching
+- Stereo, L, R, Mid, and Side audition modes plus adjustable high-pass and low-pass review filters
+- adaptive high-resolution balanced-log spectrogram with independent time/frequency zoom and pan
 - Combined stereo, Left / Right, and Mid / Side spectrogram views
 - stable long-analysis status with plan, elapsed time, and progress details
 - structured Worker diagnostics with copyable failure context
@@ -48,8 +50,8 @@ npx wrangler types --check
 ```
 
 `npm run test` covers FFT numerical parity and peak location, adaptive and
-bounded frame planning, log-band safety, diagnostics serialization, Mid / Side
-separation, RMS dB combination, and phase correlation math.
+bounded frame planning, log-band safety, chart viewport math, diagnostics
+serialization, Mid / Side separation, RMS dB combination, and phase correlation math.
 
 ## Cloudflare Deployment
 

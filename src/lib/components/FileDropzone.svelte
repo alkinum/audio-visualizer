@@ -5,16 +5,34 @@
     onSelect: (file: File) => void;
     busy?: boolean;
     compact?: boolean;
+    label?: string;
+    multiple?: boolean;
+    onSelectMultiple?: (files: File[]) => void;
   }
 
-  let { onSelect, busy = false, compact = false }: Props = $props();
+  let {
+    onSelect,
+    busy = false,
+    compact = false,
+    label,
+    multiple = false,
+    onSelectMultiple,
+  }: Props = $props();
   let input: HTMLInputElement;
   let dragging = $state(false);
-  const primaryLabel = $derived(compact ? 'Replace file' : busy ? 'Decoding audio' : 'Open an audio file');
+  const primaryLabel = $derived(
+    label ?? (compact ? 'Replace file' : busy ? 'Decoding audio' : multiple ? 'Open one or two audio files' : 'Open an audio file'),
+  );
+  const secondaryLabel = $derived(
+    multiple ? 'Drop up to two files here or choose from this device' : 'Drop a file here or choose from this device',
+  );
 
   function selectFiles(files: FileList | null): void {
-    const file = files?.item(0);
-    if (file) onSelect(file);
+    const selected = Array.from(files ?? []).slice(0, multiple ? 2 : 1);
+    if (selected.length === 0) return;
+    if (multiple && onSelectMultiple) onSelectMultiple(selected);
+    else onSelect(selected[0]);
+    input.value = '';
   }
 
   function handleDrop(event: DragEvent): void {
@@ -32,6 +50,7 @@
   bind:this={input}
   class="visually-hidden"
   type="file"
+  {multiple}
   accept="audio/*,.wav,.mp3,.m4a,.aac,.flac,.ogg,.opus"
   onchange={(event) => selectFiles(event.currentTarget.files)}
 />
@@ -66,7 +85,7 @@
   <span class="file-drop-copy">
     <strong>{primaryLabel}</strong>
     {#if !compact}
-      <small>{busy ? 'Reading waveform data locally' : 'Drop a file here or choose from this device'}</small>
+      <small>{busy ? 'Reading waveform data locally' : secondaryLabel}</small>
     {/if}
   </span>
   {#if busy}

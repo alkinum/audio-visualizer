@@ -28,9 +28,11 @@ starts offline spectral analysis. It owns no UI state.
 
 ### `src/lib/audio/playback.ts`
 
-Owns `AudioContext`, source-node recreation, pause offsets, seeking, end events,
-output routing, and the live analyzer graph. Each playback start creates one
-new `AudioBufferSourceNode`, because source nodes cannot be restarted.
+Owns the shared `AudioContext`, synchronized A/B source-node recreation, pause
+offsets, seeking, end events, audition matrices, HP/LP review filters, and the
+live analyzer graph. Each playback start creates new A and B
+`AudioBufferSourceNode` instances at the same context time and offset, because
+source nodes cannot be restarted. A/B changes crossfade gains without seeking.
 
 ### `src/lib/audio/analysis.worker.ts`
 
@@ -79,8 +81,9 @@ For every selected time frame:
 3. Derive Mid as `(L + R) / sqrt(2)` and Side as `(L - R) / sqrt(2)` in the
    complex frequency domain.
 4. Derive combined stereo energy as the RMS of L and R magnitudes.
-5. Aggregate FFT bins into a `log1p(f / 20 Hz)` perceptual grid from DC to
-   Nyquist, keeping 0 Hz representable while expanding low frequencies.
+5. Aggregate FFT bins into a `log1p(f / 700 Hz)` balanced perceptual grid from
+   DC to Nyquist. This keeps 0 Hz representable while reserving roughly one
+   quarter of the display for the region above 10 kHz at 48 kHz sample rate.
 6. Convert magnitudes to dBFS and clamp to the configured display floor.
 
 Frame count and frequency-bin count are bounded independently of file duration,
@@ -102,18 +105,22 @@ JavaScript stacks directly visible in diagnostics.
 ## Real-Time Audio Graph
 
 ```text
-AudioBufferSource
-  -> channel splitter
-     -> L analyzer
-     -> R analyzer
-     -> Mid sum -> Mid analyzer
-     -> Side difference -> Side analyzer
-  -> output gain -> destination
+A source ---\
+             -> A/B gain crossfade -> Stereo/L/R/Mid/Side matrix
+B source ---/                         -> Dry/HP/LP gain crossfade
+                                      -> output -> destination
+                                                -> channel splitter
+                                                   -> L/R/Mid/Side analyzers
 ```
 
 Analyzer branches feed a zero-gain sink so they remain part of the rendered
-graph without contributing duplicate audio. Playback audio uses one direct
-route to the output gain.
+graph without contributing duplicate audio. Every listening mode and filter
+therefore affects both the audible signal and live analysis consistently.
+
+Canvas components use their measured CSS size and current device pixel ratio
+to create a native-resolution backing store. The transform uses the exact
+backing/CSS ratio on each axis, and a resolution media query triggers redraws
+when the window moves between displays with different DPR values.
 
 ## Deployment
 

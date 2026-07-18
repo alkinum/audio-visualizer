@@ -37,7 +37,7 @@ workflow, and adds:
 
 - `npm run check`: passed
 - `npm run lint`: passed
-- `npm run test`: passed, 20 tests
+- `npm run test`: passed, 24 tests
 - `npm run build`: passed with Cloudflare adapter output
 - `npx wrangler types --check`: passed
 - `npm audit --omit=dev`: 0 production vulnerabilities
@@ -62,6 +62,20 @@ workflow, and adds:
 
 ## Completed This Turn
 
+- Rebalanced the offline frequency scale around a 700 Hz pivot so the upper
+  octave receives materially more display space.
+- Added shared X/Y viewport math, independent Spectrogram time/frequency zoom,
+  Y-axis panning, a time ruler, and an Audition-style Waveform overview range.
+- Added waveform dBFS reference lines without conflating peak amplitude with
+  integrated LUFS loudness.
+- Added synchronized two-file A/B playback, realtime gain-crossfaded switching,
+  Stereo/L/R/Mid/Side audition matrices, and adjustable HP/LP review filters.
+- Added full-page file drag handling with explicit A and B replacement targets.
+- Added one-or-two-file homepage selection so the first two chosen files open
+  directly as synchronized A/B sources; additional selections are ignored.
+- Made all Canvas backing stores DPR-native, responsive to display-DPR changes,
+  and exact for fractional CSS dimensions on both axes.
+
 - Replaced React, Tailwind, and Vite plugin configuration with SvelteKit.
 - Added `@sveltejs/adapter-cloudflare`, JSONC Wrangler config, and generated
   Worker binding types.
@@ -84,8 +98,9 @@ workflow, and adds:
   M/S switches render in roughly 8-17 ms in the desktop browser check.
 - Replaced the green HSL heat map with an Audition-style dB palette progressing
   from near-black and deep blue through violet/red to orange/yellow/near-white.
-- Anchored the perceptual logarithmic Y axis at 0 Hz with a `log1p(f / 20 Hz)`
-  curve, expanded sensitivity to -120 dBFS, and lifted low-level color response.
+- Anchored the perceptual logarithmic Y axis at 0 Hz, expanded sensitivity to
+  -120 dBFS, and lifted low-level color response. The curve now uses a 700 Hz
+  pivot so high-frequency detail retains enough display space.
 - Made the spectrum height stable, extended the frequency plot to the module
   edge, moved the frequency ruler to the right, and added colored channel tags.
 - Added a spectrogram-sized waiting state and copyable failure UI while keeping

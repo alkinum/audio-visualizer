@@ -17,18 +17,18 @@ npm run build
 - sample-rate-specific Nyquist values cap labels and bins correctly
 - every perceptual-log band remains non-empty from DC through Nyquist
 - a DC signal lands in the bottom spectrum band
-- the 0 Hz-anchored scale round-trips frequencies and allocates over 20x more
-  display space to 0-1 kHz than to an equal-width interval around 10 kHz
+- the 0 Hz-anchored scale round-trips frequencies while reserving over 23% of
+  a 48 kHz display for 10 kHz through Nyquist
 - optimized FFT output matches a direct Fourier transform
 - adaptive plans respect constrained and maximum output-memory budgets
 - Error and non-Error failures retain structured diagnostic context
 
-Automated evidence: `npm run test` passes 20 DSP, planning, diagnostics,
-palette, and metering tests.
+Automated evidence: `npm run test` passes 24 DSP, planning, diagnostics,
+palette, metering, chart-viewport, and Canvas-DPR tests.
 
 ## Browser Flows
 
-- load a stereo WAV through the picker and through drag/drop
+- load one file or synchronized A/B files through the picker and drag/drop
 - reject a non-audio file with an inline message
 - play, pause, seek, restart, and reach natural playback end
 - use Space and Left/Right arrow keyboard controls outside editable fields

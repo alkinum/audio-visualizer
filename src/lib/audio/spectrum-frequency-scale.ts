@@ -1,4 +1,6 @@
-export const SPECTRUM_FREQUENCY_CURVE_HZ = 20;
+// The 700 Hz pivot follows the mel-scale shape: it preserves useful bass detail
+// without compressing the upper octave into a narrow strip.
+export const SPECTRUM_FREQUENCY_CURVE_HZ = 700;
 
 export function frequencyToSpectrumRatio(frequency: number, nyquist: number): number {
   if (!Number.isFinite(nyquist) || nyquist <= 0) throw new RangeError('Nyquist frequency must be positive');

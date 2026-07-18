@@ -48,9 +48,11 @@ Tablet and mobile:
 - Spectrogram L/R and M/S panes remain stacked, never squeezed side by side.
 - The spectral plot uses a stable 430 px height across all channel modes and
   reaches the module divider without an artificial low-frequency footer.
-- Its Y axis uses a 0 Hz-anchored perceptual log curve so bass receives more
-  vertical space while high frequencies remain compact.
+- Its Y axis uses a 0 Hz-anchored balanced log curve so bass remains readable
+  while 10 kHz through Nyquist retains enough inspection space.
 - Every canvas has a stable minimum height and a bounded aspect ratio.
+- Canvas backing stores track the native DPR and exact fractional CSS size;
+  screenshots or CSS-upscaled bitmap previews are never used in the product UI.
 
 ## Theme Tokens
 

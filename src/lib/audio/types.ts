@@ -1,4 +1,7 @@
 export type ResolvedTheme = 'light' | 'dark';
+export type ComparisonSlot = 'a' | 'b';
+export type AuditionChannel = 'stereo' | 'left' | 'right' | 'mid' | 'side';
+export type AuditionFilterMode = 'off' | 'highpass' | 'lowpass';
 export type WaveformMode = 'combined' | 'split';
 export type SpectrogramMode = 'combined' | 'lr' | 'ms';
 export type AnalysisChannel = 'combined' | 'left' | 'right' | 'mid' | 'side';

@@ -7,10 +7,12 @@ describe('spectrum frequency scale', () => {
     expect(frequencyToSpectrumRatio(24_000, 24_000)).toBe(1);
   });
 
-  it('allocates more vertical space to low-frequency intervals', () => {
+  it('balances bass detail with enough room above 10 kHz', () => {
     const lowInterval = frequencyToSpectrumRatio(1000, 24_000) - frequencyToSpectrumRatio(0, 24_000);
     const highInterval = frequencyToSpectrumRatio(11_000, 24_000) - frequencyToSpectrumRatio(10_000, 24_000);
-    expect(lowInterval).toBeGreaterThan(highInterval * 20);
+    const upperBand = 1 - frequencyToSpectrumRatio(10_000, 24_000);
+    expect(lowInterval).toBeGreaterThan(highInterval * 5);
+    expect(upperBand).toBeGreaterThan(0.23);
   });
 
   it('round-trips display positions and frequencies', () => {
