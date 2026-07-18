@@ -15,7 +15,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run build && wrangler pages deploy",
     "cf:types": "wrangler types"
   },
   "dependencies": {
