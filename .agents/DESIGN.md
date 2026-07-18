@@ -23,6 +23,8 @@ Taste parameters:
 - No gradients, glow effects, decorative glass, or oversized headings
 - Spectrum intensity uses a data-encoding palette modeled on Audition: low dB
   near-black/blue, then violet/red, orange/yellow, and near-white at peaks
+- Spectrum color sensitivity spans -120 to 0 dBFS and lifts low-level detail
+  without changing the near-black analysis floor
 - L/R and M/S use distinct colored mode marks and bordered in-chart channel
   tags; the same channel colors remain stable in both themes
 
@@ -46,6 +48,8 @@ Tablet and mobile:
 - Spectrogram L/R and M/S panes remain stacked, never squeezed side by side.
 - The spectral plot uses a stable 430 px height across all channel modes and
   reaches the module divider without an artificial low-frequency footer.
+- Its Y axis uses a 0 Hz-anchored perceptual log curve so bass receives more
+  vertical space while high frequencies remain compact.
 - Every canvas has a stable minimum height and a bounded aspect ratio.
 
 ## Theme Tokens

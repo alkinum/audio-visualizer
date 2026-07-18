@@ -21,8 +21,8 @@ Acceptance gate:
 Deliverables:
 
 - typed FFT Worker with Hann windowing
-- sample-rate-aware 0 Hz to Nyquist mapping
-- bounded linear-frequency bins and bounded time frames
+- sample-rate-aware perceptual-log 0 Hz to Nyquist mapping
+- bounded frequency bins and bounded time frames
 - combined, L/R, and Mid/Side display modes
 - progressive analysis status and cancellation when a file is replaced
 
@@ -108,6 +108,6 @@ Acceptance gate:
   elapsed time, and a working copy action
 - desktop and 390 px mobile layouts have no horizontal overflow
 
-Evidence: 17 unit tests pass, a maximum-plan 30-second DSP benchmark completes
+Evidence: 20 unit tests pass, a maximum-plan 30-second DSP benchmark completes
 in about 1.26 seconds on the development machine, and Playwright verifies the
 normal, pending, failure, copy, playback, and mobile flows.

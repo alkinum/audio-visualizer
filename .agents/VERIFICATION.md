@@ -15,13 +15,15 @@ npm run build
 - identical L/R input produces Mid energy and a suppressed Side result
 - polarity-inverted L/R input produces Side energy and a suppressed Mid result
 - sample-rate-specific Nyquist values cap labels and bins correctly
-- every linear band remains non-empty from DC through Nyquist
+- every perceptual-log band remains non-empty from DC through Nyquist
 - a DC signal lands in the bottom spectrum band
+- the 0 Hz-anchored scale round-trips frequencies and allocates over 20x more
+  display space to 0-1 kHz than to an equal-width interval around 10 kHz
 - optimized FFT output matches a direct Fourier transform
 - adaptive plans respect constrained and maximum output-memory budgets
 - Error and non-Error failures retain structured diagnostic context
 
-Automated evidence: `npm run test` passes 17 DSP, planning, diagnostics,
+Automated evidence: `npm run test` passes 20 DSP, planning, diagnostics,
 palette, and metering tests.
 
 ## Browser Flows
@@ -52,12 +54,14 @@ Verified on 2026-07-18 with generated 48 kHz stereo WAV fixtures:
   capability hints, elapsed time, and user agent; copy changed to `Copied`
 - normal short-WAV analysis and 8192 FFT playback completed with zero browser
   console errors or warnings
-- cached desktop spectrum switches completed in roughly 8-17 ms after prewarm;
-  an isolated garbage-collection sample reached 50 ms
+- cached desktop spectrum switches completed in 11.8-16.8 ms after warm-up;
+  the first cold GPU composite reached 90.7 ms
 - desktop and 390 px mobile spectrum sections reported a 1 px bottom gap,
   exactly matching the module divider, with no horizontal overflow
 - full-page and mobile screenshots confirmed right-side 0 Hz-to-Nyquist
   labels, unobscured L/R/M/S tags, and the Audition-style intensity palette
+- the latest full-page check confirmed expanded 0-1 kHz spacing, compressed
+  10-24 kHz spacing, and visible low-level detail around 440/880 Hz tones
 
 ## Visual Matrix
 

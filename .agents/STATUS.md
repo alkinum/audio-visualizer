@@ -37,7 +37,7 @@ workflow, and adds:
 
 - `npm run check`: passed
 - `npm run lint`: passed
-- `npm run test`: passed, 17 tests
+- `npm run test`: passed, 20 tests
 - `npm run build`: passed with Cloudflare adapter output
 - `npx wrangler deploy --dry-run`: passed
 - `npx wrangler types --check`: passed
@@ -67,7 +67,7 @@ workflow, and adds:
   Space and arrow keyboard controls, and waveform pointer seeking.
 - Added semantic light and dark tokens with system fallback and persistence.
 - Added Cloudflare dry-run evidence without external upload or storage.
-- Added a typed FFT Worker with bounded frames, linear-frequency bins, progress,
+- Added a typed FFT Worker with bounded frames, perceptual-log frequency bins, progress,
   cancellation, and Combined, L/R, Mid, and Side outputs.
 - Added Worker readiness, plan acknowledgement, startup/stall watchdogs,
   `onmessageerror`, result validation, stage-aware stacks, and structured logs.
@@ -81,6 +81,8 @@ workflow, and adds:
   M/S switches render in roughly 8-17 ms in the desktop browser check.
 - Replaced the green HSL heat map with an Audition-style dB palette progressing
   from near-black and deep blue through violet/red to orange/yellow/near-white.
+- Anchored the perceptual logarithmic Y axis at 0 Hz with a `log1p(f / 20 Hz)`
+  curve, expanded sensitivity to -120 dBFS, and lifted low-level color response.
 - Made the spectrum height stable, extended the frequency plot to the module
   edge, moved the frequency ruler to the right, and added colored channel tags.
 - Added a spectrogram-sized waiting state and copyable failure UI while keeping
